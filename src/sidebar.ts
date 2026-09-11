@@ -20,7 +20,11 @@ export class CardsViewProvider implements vscode.WebviewViewProvider {
     view.webview.options = { enableScripts: true };
     view.webview.html = this.renderHtml(view.webview);
     view.webview.onDidReceiveMessage((msg: { type: string; id?: string }) => {
-      if (msg.type === 'select' && msg.id) {
+      // 修复：侧边栏初次打开时没有任何数据变更事件，必须由前端发 ready 主动拉取初始状态，
+      // 否则卡片列表要等下一次刷新才会出现
+      if (msg.type === 'ready') {
+        this.pushState();
+      } else if (msg.type === 'select' && msg.id) {
         this.panel.show(msg.id);
       } else if (msg.type === 'openBoard') {
         this.panel.show();
@@ -102,6 +106,8 @@ export class CardsViewProvider implements vscode.WebviewViewProvider {
   function esc(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
+  // 加载完成，主动向宿主拉取初始数据
+  vscode.postMessage({ type: 'ready' });
 </script>
 </body>
 </html>`;
