@@ -1,0 +1,181 @@
+/* 项目看板 · 三栏布局样式（VS Code 暗色主题变量驱动） */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body, #app {
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--vscode-font-family);
+  color: var(--vscode-foreground);
+  background: var(--vscode-editor-background);
+}
+
+#app { display: flex; flex-direction: column; }
+
+/* ── 顶栏 ── */
+.toolbar {
+  height: 52px; display: flex; align-items: center; gap: 10px; padding: 0 16px;
+  border-bottom: 1px solid var(--vscode-panel-border, #2b2b2b); flex-shrink: 0;
+}
+.tb-title { font-size: 15px; font-weight: 600; margin-right: 8px; white-space: nowrap; }
+.search {
+  width: 300px; height: 30px; padding: 0 10px; font-size: 13px; border-radius: 4px;
+  background: var(--vscode-input-background); color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border, #3c3c3c); outline: none;
+}
+.search:focus { border-color: var(--vscode-focusBorder); }
+.dropdown {
+  height: 30px; padding: 0 8px; font-size: 12px; border-radius: 4px;
+  background: var(--vscode-dropdown-background); color: var(--vscode-dropdown-foreground);
+  border: 1px solid var(--vscode-dropdown-border, #3c3c3c); outline: none;
+}
+.icon-btn {
+  width: 30px; height: 30px; border-radius: 4px; font-size: 14px; cursor: pointer;
+  background: var(--vscode-button-secondaryBackground, #2d2d2d);
+  color: var(--vscode-button-secondaryForeground, #c5c5c5);
+  border: 1px solid var(--vscode-input-border, #3c3c3c);
+}
+.icon-btn:hover { background: var(--vscode-button-secondaryHoverBackground, #3a3a3a); }
+.grow { flex: 1; }
+.primary-btn {
+  height: 30px; padding: 0 14px; border: none; border-radius: 4px; font-size: 12px; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+  background: var(--vscode-button-background); color: var(--vscode-button-foreground);
+}
+.primary-btn:hover { background: var(--vscode-button-hoverBackground); }
+
+/* ── 三栏 ── */
+.columns { flex: 1; display: flex; min-height: 0; }
+
+.col-header {
+  height: 36px; display: flex; align-items: center; padding: 0 14px; font-size: 11px; font-weight: 600;
+  opacity: .65; letter-spacing: 1px; border-bottom: 1px solid var(--vscode-panel-border, #2b2b2b);
+  flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.col-header .count {
+  margin-left: 8px; padding: 1px 8px; border-radius: 10px; font-size: 11px;
+  background: var(--vscode-badge-background); color: var(--vscode-badge-foreground);
+}
+
+/* ── 左1: 卡片列表 ── */
+.col-cards {
+  width: 320px; flex-shrink: 0; display: flex; flex-direction: column;
+  border-right: 1px solid var(--vscode-panel-border, #2b2b2b);
+}
+.card-list { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 10px; }
+
+.card {
+  padding: 12px 14px; border-radius: 8px; cursor: pointer; position: relative;
+  background: var(--vscode-sideBar-background, #252526);
+  border: 1px solid var(--vscode-widget-border, #3a3a3a);
+}
+.card:hover { border-color: var(--vscode-focusBorder, #007acc); }
+.card.selected {
+  border-color: var(--vscode-focusBorder, #007acc);
+  box-shadow: 0 0 0 1px var(--vscode-focusBorder, #007acc);
+}
+.card.dimmed { opacity: .42; }
+
+.card-top { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.card-name { font-size: 13.5px; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag { font-size: 10.5px; font-weight: 600; padding: 1px 7px; border-radius: 4px; white-space: nowrap; }
+.tag.type { background: rgba(68,148,206,.16); color: #6cb2e8; border: 1px solid rgba(68,148,206,.4); }
+.tag.type.qt { background: rgba(166,86,201,.16); color: #c586d6; border-color: rgba(166,86,201,.4); }
+.tag.type.ros { background: rgba(78,178,101,.16); color: #7cc98e; border-color: rgba(78,178,101,.4); }
+.tag.branch { background: rgba(206,145,120,.12); color: #ce9178; border: 1px solid rgba(206,145,120,.35); font-family: var(--vscode-editor-font-family, monospace); }
+
+.status-line { display: flex; align-items: center; gap: 6px; font-size: 11.5px; opacity: .75; margin-bottom: 8px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.dot.doing { background: #4ec96b; box-shadow: 0 0 5px rgba(78,201,107,.5); }
+.dot.paused { background: #e2c08d; }
+.dot.blocked { background: #e51400; }
+.dot.done { background: #3794ff; }
+.dot.stale { background: #6a6a6a; }
+
+.focus-line {
+  font-size: 11.5px; opacity: .85; margin-bottom: 8px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.focus-line b { color: #d7ba7d; font-weight: 600; }
+
+.progress { height: 5px; border-radius: 3px; overflow: hidden; margin-bottom: 5px; background: var(--vscode-input-background, #3c3c3c); }
+.progress > div { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #007acc, #2b9ce8); }
+.card-meta { display: flex; justify-content: space-between; font-size: 10.5px; opacity: .55; }
+
+.card-actions { display: flex; gap: 6px; margin-top: 10px; }
+.chip {
+  font-size: 11px; padding: 3px 9px; border-radius: 5px; cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 4px;
+  color: var(--vscode-textLink-foreground, #9ecffa);
+  background: rgba(0,122,204,.10); border: 1px solid rgba(0,122,204,.35);
+}
+.chip:hover { background: rgba(0,122,204,.22); }
+.chip.disabled { opacity: .35; cursor: not-allowed; }
+
+.cards-empty { padding: 30px 16px; text-align: center; font-size: 12px; opacity: .55; line-height: 2; }
+
+/* ── 左2: 文档树 ── */
+.col-files {
+  width: 290px; flex-shrink: 0; display: flex; flex-direction: column;
+  border-right: 1px solid var(--vscode-panel-border, #2b2b2b);
+}
+.tree { flex: 1; overflow-y: auto; padding: 8px 4px; font-size: 12.5px; }
+.tree-empty { padding: 24px 14px; font-size: 12px; opacity: .5; text-align: center; }
+.tree-item {
+  display: flex; align-items: flex-start; gap: 6px; padding: 3px 8px;
+  border-radius: 4px; cursor: pointer; line-height: 1.55; user-select: none;
+}
+.tree-item:hover { background: var(--vscode-list-hoverBackground); }
+.tree-item.active { background: var(--vscode-list-activeSelectionBackground); color: var(--vscode-list-activeSelectionForeground); }
+.tree-item .arrow { font-size: 9px; width: 12px; flex-shrink: 0; margin-top: 4px; opacity: .7; }
+.tree-item .fi { width: 15px; text-align: center; flex-shrink: 0; margin-top: 1px; }
+.tree-item .fname { word-break: break-all; }
+.tree-item.folder { color: #dcb67a; }
+
+/* ── 右: 文档编辑 ── */
+/* 注意：Vditor 会把容器元素本身加上 .vditor 类（display:flex）。
+   绝不能用内联 display 或 #editor 的 display 规则覆盖它，否则 flex 布局失效、
+   内容层高度塌陷成内容高度，长文档被裁掉且无法滚动。 */
+.col-doc { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+.doc-header {
+  height: 36px; display: flex; align-items: center; gap: 10px; padding: 0 14px; flex-shrink: 0;
+  border-bottom: 1px solid var(--vscode-panel-border, #2b2b2b);
+  background: var(--vscode-sideBar-background, #252526);
+}
+.doc-path {
+  flex: 1; font-size: 12px; opacity: .75; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-family: var(--vscode-editor-font-family, monospace);
+}
+.save-state { font-size: 11px; opacity: .55; white-space: nowrap; }
+#editor { flex: 1; min-height: 0; }
+.editor-empty {
+  position: absolute; inset: 37px 0 0 0; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; opacity: .4;
+}
+
+/* Vditor 会把 .vditor 类直接加在 #editor 容器上，因此用 #editor.vditor 选择器。
+   Vditor 会写入内联 height:100%，但它相对 .col-doc 计算会多出 doc-header 的高度，
+   必须改回 auto，由 flex:1 决定高度（!important 可压过非 important 的内联样式）。 */
+#editor.vditor { height: auto !important; border: none; border-radius: 0; }
+/* 修复：Vditor 工具栏按钮全是浮动元素，父容器会塌缩成 1px 导致工具栏被内容盖住。
+   flow-root 建立块级格式化上下文，让工具栏正确包裹浮动按钮。 */
+#editor .vditor-toolbar { display: flow-root; }
+/* 修复：Vditor 各编辑模式的内容层默认 overflow:visible，长文档会被 .vditor 的
+   overflow:hidden 裁掉且无处滚动。显式给内容层加纵向滚动。 */
+#editor .vditor-ir,
+#editor .vditor-sv,
+#editor .vditor-wysiwyg { overflow-y: auto; }
+
+/* ── 卡片右键菜单 ── */
+.ctx-menu {
+  position: fixed; z-index: 9999; display: none; min-width: 150px; padding: 4px;
+  border-radius: 6px; font-size: 12px;
+  background: var(--vscode-menu-background, #252526);
+  border: 1px solid var(--vscode-menu-border, #3c3c3c);
+  box-shadow: 0 4px 16px rgba(0,0,0,.4);
+}
+.ctx-menu .ctx-item {
+  padding: 6px 12px; border-radius: 4px; cursor: pointer;
+  color: var(--vscode-menu-foreground, #c5c5c5);
+}
+.ctx-menu .ctx-item:hover { background: var(--vscode-menu-selectionBackground, #094771); }
+.ctx-menu .ctx-sep { height: 1px; margin: 4px 8px; background: var(--vscode-menu-border, #3c3c3c); }

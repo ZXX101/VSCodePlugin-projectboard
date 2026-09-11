@@ -1,0 +1,72 @@
+{
+  "name": "projectboard",
+  "displayName": "项目看板 ProjectBoard",
+  "description": "以 Markdown 笔记为数据源的项目卡片看板：总览多项目状态、文档树、Vditor 所见即所得编辑、一键进入项目工作区",
+  "version": "0.1.0",
+  "publisher": "xufeng",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/.projectboard.json"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "projectboard.openBoard",
+        "title": "打开项目看板",
+        "icon": "$(layout-sidebar-left)"
+      },
+      {
+        "command": "projectboard.refresh",
+        "title": "刷新项目看板",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "projectboard.newProject",
+        "title": "新建项目",
+        "icon": "$(add)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "projectboard",
+          "title": "项目看板",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "projectboard": [
+        {
+          "type": "webview",
+          "id": "projectboard.cards",
+          "name": "项目卡片"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "typecheck": "tsc --noEmit",
+    "package": "node esbuild.js --production && vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "gray-matter": "^4.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.4.0",
+    "vditor": "^3.10.0"
+  }
+}
