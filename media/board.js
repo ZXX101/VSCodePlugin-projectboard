@@ -62,11 +62,7 @@
           '<div class="tag type ' + esc(p.type) + '">' + esc(p.type) + '</div>' +
         '</div>' +
         '<div class="status-line"><span class="dot ' + dotCls + '"></span>' + esc(statusText) + '</div>' +
-        (p.focus
-          ? '<div class="focus-line' + (p.focusAuto ? ' auto' : '') + '" title="' +
-            esc(p.focusAuto ? '自动识别自最新未勾选任务（在 frontmatter 填写 focus 可手动覆盖）' : p.focus) + '">' +
-            '<b>' + (p.focusAuto ? '焦点·auto' : '焦点') + '</b> ' + esc(p.focus) + '</div>'
-          : '') +
+        (p.focus ? '<div class="focus-line" title="' + esc(p.focus) + '"><b>焦点</b> ' + esc(p.focus) + '</div>' : '') +
         '<div class="progress"><div style="width:' + p.progress + '%"></div></div>' +
         '<div class="card-meta"><span>' + esc(metaBits.join(' · ') || '暂无待办') + '</span><span>' + p.progress + '%</span></div>' +
         '<div class="card-actions">' +
