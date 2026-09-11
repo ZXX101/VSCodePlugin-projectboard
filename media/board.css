@@ -96,6 +96,7 @@ html, body, #app {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .focus-line b { color: #d7ba7d; font-weight: 600; }
+.focus-line.auto b { font-weight: 400; opacity: .75; border-bottom: 1px dashed #d7ba7d; }
 
 .progress { height: 5px; border-radius: 3px; overflow: hidden; margin-bottom: 5px; background: var(--vscode-input-background, #3c3c3c); }
 .progress > div { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #007acc, #2b9ce8); }

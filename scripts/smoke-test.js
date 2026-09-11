@@ -72,6 +72,41 @@ const FIXTURE = path.resolve(__dirname, '..', 'test-fixtures', 'XuFeng');
   console.log(`\n主分支.md 复选框总数（grep 口径）= ${total}，看板聚合应 ≥ 此值`);
   console.log(`看板聚合 待办+完成+搁置 = ${ws.todo + ws.done + ws.shelved}`);
 
+  console.log('\n═══ 自动焦点验证 ═══');
+  const tmpDir = path.join(FIXTURE, '_焦点测试');
+  fs.mkdirSync(tmpDir, { recursive: true });
+  const tmpHub = path.join(tmpDir, 'README.md');
+  fs.writeFileSync(tmpHub,
+    '---\nname: 焦点测试\ntype: other\nstatus: doing\nfocus:\n---\n\n## 需求\n\n- [ ] 第一条任务\n\n## 问题\n\n## 笔记\n\n## 草稿\n\n- [ ] 草稿任务不应出现\n');
+  const tmpTasks = path.join(tmpDir, 'tasks.md');
+  fs.writeFileSync(tmpTasks,
+    '- [ ] \n- [x] 已完成的事\n- [ ] [带链接的任务](https://example.com)测试\n- [ ] `带代码的任务`尾部。\n- [ ] 最后的任务\n');
+  // 显式控制 mtime：README 较早，tasks.md 最新 → 自动焦点应取 tasks.md 的最后两条
+  fs.utimesSync(tmpHub, new Date('2026-09-01'), new Date('2026-09-01'));
+  fs.utimesSync(tmpTasks, new Date('2026-09-10'), new Date('2026-09-10'));
+
+  const cfgPath2 = path.join(FIXTURE, '.projectboard.json');
+  const origCfg2 = fs.readFileSync(cfgPath2, 'utf8');
+  const cfg2 = JSON.parse(origCfg2);
+  fs.writeFileSync(cfgPath2, JSON.stringify({ ...cfg2, projectDirs: [...cfg2.projectDirs, '_焦点测试'] }, null, 2));
+  await store.refresh();
+  const fp = store.projects.find((p) => p.dirName === '_焦点测试');
+  console.log(`自动焦点 = "${fp.focus}"（应为 "带代码的任务尾部；最后的任务"）`);
+  console.log(`focusAuto = ${fp.focusAuto}（应为 true）`);
+  if (fp.focus !== '带代码的任务尾部；最后的任务' || fp.focusAuto !== true) { throw new Error('自动焦点断言失败'); }
+
+  // 手动 focus 覆盖验证
+  const rawHub = fs.readFileSync(tmpHub, 'utf8').replace('focus:', 'focus: 手动焦点');
+  fs.writeFileSync(tmpHub, rawHub);
+  await store.refresh();
+  const fp2 = store.projects.find((p) => p.dirName === '_焦点测试');
+  console.log(`手动覆盖后 focus = "${fp2.focus}"（应为 "手动焦点"），focusAuto = ${fp2.focusAuto}（应为 false）`);
+  if (fp2.focus !== '手动焦点' || fp2.focusAuto !== false) { throw new Error('手动覆盖断言失败'); }
+
+  fs.writeFileSync(cfgPath2, origCfg2);
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+  await store.refresh();
+
   console.log('\n═══ 白名单机制验证 ═══');
   const cfgPath = path.join(FIXTURE, '.projectboard.json');
   const origCfg = fs.readFileSync(cfgPath, 'utf8');
