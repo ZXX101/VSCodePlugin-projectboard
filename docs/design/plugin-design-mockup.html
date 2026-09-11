@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>项目看板 · VS Code 插件设计稿</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
+  body { background: #0d0d0d; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 28px; }
+
+  .window {
+    width: 1960px; height: 1088px; background: #1e1e1e; border-radius: 12px; overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0,0,0,.7), 0 0 0 1px #3a3a3a;
+    display: flex; flex-direction: column;
+  }
+
+  /* ── 标题栏 ── */
+  .titlebar {
+    height: 36px; background: #2d2d2d; display: flex; align-items: center; padding: 0 14px;
+    color: #bbbbbb; font-size: 13px; flex-shrink: 0; border-bottom: 1px solid #1a1a1a;
+  }
+  .titlebar .dots { display: flex; gap: 8px; margin-right: 14px; }
+  .titlebar .dots span { width: 12px; height: 12px; border-radius: 50%; }
+  .titlebar .dots span:nth-child(1){ background:#ff5f57; } .titlebar .dots span:nth-child(2){ background:#febc2e; } .titlebar .dots span:nth-child(3){ background:#28c840; }
+  .titlebar .center { flex: 1; text-align: center; color: #8f8f8f; }
+
+  .body { display: flex; flex: 1; min-height: 0; }
+
+  /* ── Activity Bar ── */
+  .activitybar {
+    width: 52px; background: #252526; display: flex; flex-direction: column; align-items: center;
+    padding-top: 10px; gap: 4px; flex-shrink: 0; border-right: 1px solid #161616;
+  }
+  .activitybar .ab-icon {
+    width: 52px; height: 48px; display: flex; align-items: center; justify-content: center;
+    color: #7a7a7a; font-size: 22px; position: relative; cursor: pointer;
+  }
+  .activitybar .ab-icon.active { color: #ffffff; }
+  .activitybar .ab-icon.active::before {
+    content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px;
+    background: #007acc; border-radius: 0 2px 2px 0;
+  }
+  .activitybar .spacer { flex: 1; }
+
+  /* ── 看板主区 ── */
+  .board { flex: 1; display: flex; flex-direction: column; min-width: 0; background: #1e1e1e; }
+
+  .toolbar {
+    height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 18px;
+    border-bottom: 1px solid #2b2b2b; flex-shrink: 0; background: #1e1e1e;
+  }
+  .toolbar .tb-title { font-size: 16px; font-weight: 600; color: #e8e8e8; margin-right: 10px; white-space: nowrap; }
+  .search {
+    flex: 0 0 340px; height: 34px; background: #2d2d2d; border: 1px solid #3c3c3c; border-radius: 6px;
+    display: flex; align-items: center; gap: 8px; padding: 0 12px; color: #8f8f8f; font-size: 13px;
+  }
+  .dropdown {
+    height: 34px; background: #2d2d2d; border: 1px solid #3c3c3c; border-radius: 6px; color: #c5c5c5;
+    display: flex; align-items: center; gap: 8px; padding: 0 12px; font-size: 13px; white-space: nowrap;
+  }
+  .icon-btn {
+    width: 34px; height: 34px; background: #2d2d2d; border: 1px solid #3c3c3c; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center; color: #c5c5c5; font-size: 15px;
+  }
+  .toolbar .grow { flex: 1; }
+  .primary-btn {
+    height: 34px; background: #007acc; border-radius: 6px; color: #fff; font-size: 13px; font-weight: 600;
+    display: flex; align-items: center; padding: 0 16px; gap: 6px; white-space: nowrap;
+  }
+
+  .columns { flex: 1; display: flex; min-height: 0; }
+
+  /* ── 左1: 卡片列表 ── */
+  .col-cards {
+    width: 330px; flex-shrink: 0; border-right: 1px solid #2b2b2b; display: flex; flex-direction: column;
+    background: #202020;
+  }
+  .col-header {
+    height: 40px; display: flex; align-items: center; padding: 0 16px; font-size: 12px; font-weight: 600;
+    color: #8f8f8f; letter-spacing: 1px; border-bottom: 1px solid #2b2b2b; flex-shrink: 0;
+  }
+  .col-header .count { margin-left: 8px; background: #37373d; color: #c5c5c5; border-radius: 10px; padding: 1px 8px; font-size: 11px; }
+  .card-list { flex: 1; overflow: hidden; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+
+  .card {
+    background: #2a2a2b; border: 1px solid #3a3a3a; border-radius: 10px; padding: 14px 16px; position: relative;
+  }
+  .card.selected { border: 1px solid #007acc; box-shadow: 0 0 0 1px #007acc, 0 4px 18px rgba(0,122,204,.25); background: #2b2d30; }
+  .card.dimmed { opacity: .45; }
+  .card-top { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+  .card-name { font-size: 14px; font-weight: 600; color: #eaeaea; flex: 1; white-space: nowrap; overflow: hidden; }
+  .tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+  .tag.qt  { background: rgba(166,86,201,.18); color: #c586d6; border: 1px solid rgba(166,86,201,.4); }
+  .tag.web { background: rgba(68,148,206,.18); color: #6cb2e8; border: 1px solid rgba(68,148,206,.4); }
+  .tag.ros { background: rgba(78,178,101,.18); color: #7cc98e; border: 1px solid rgba(78,178,101,.4); }
+  .tag.branch { background: rgba(206,145,120,.12); color: #ce9178; border: 1px solid rgba(206,145,120,.35); font-family: Consolas, monospace; }
+  .status-line { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #a9a9a9; margin-bottom: 10px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot.green { background: #4ec96b; box-shadow: 0 0 6px rgba(78,201,107,.6); }
+  .dot.yellow { background: #e2c08d; }
+  .dot.gray { background: #6a6a6a; }
+  .progress { height: 6px; background: #3c3c3c; border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
+  .progress > div { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #007acc, #2b9ce8); }
+  .card-meta { display: flex; justify-content: space-between; font-size: 11px; color: #7f7f7f; }
+  .focus-line { font-size: 12px; color: #b9b9b9; margin-bottom: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .focus-line b { color: #d7ba7d; font-weight: 600; }
+  .card-actions { display: flex; gap: 6px; margin-top: 12px; }
+  .chip {
+    font-size: 11px; color: #9ecffa; background: rgba(0,122,204,.12); border: 1px solid rgba(0,122,204,.35);
+    border-radius: 5px; padding: 3px 9px; display: flex; align-items: center; gap: 4px;
+  }
+
+  /* ── 左2: 文件树 ── */
+  .col-files { width: 300px; flex-shrink: 0; border-right: 1px solid #2b2b2b; display: flex; flex-direction: column; background: #1f1f1f; }
+  .tree { flex: 1; padding: 10px 6px; font-size: 13px; color: #c5c5c5; overflow-y: auto; }
+  .tree-item { display: flex; align-items: flex-start; gap: 7px; padding: 4px 10px; border-radius: 5px; line-height: 1.5; }
+  .tree-item .fname { word-break: break-all; }
+  .tree-item.active { background: #094771; color: #ffffff; }
+  .tree-item .fi { width: 16px; text-align: center; flex-shrink: 0; margin-top: 2px; }
+  .tree-item.folder { color: #dcb67a; }
+  .indent-1 { padding-left: 30px; } .indent-2 { padding-left: 52px; }
+  .tree-item .arrow { font-size: 10px; color: #8f8f8f; width: 12px; flex-shrink: 0; margin-top: 4px; }
+
+  /* ── 右侧: 文档预览 ── */
+  .col-doc { flex: 1; display: flex; flex-direction: column; min-width: 0; background: #1e1e1e; }
+  .doc-tab {
+    height: 38px; display: flex; align-items: center; background: #252526; border-bottom: 1px solid #161616; flex-shrink: 0;
+  }
+  .doc-tab .tab {
+    height: 100%; display: flex; align-items: center; gap: 8px; padding: 0 18px; font-size: 13px;
+    color: #ffffff; background: #1e1e1e; border-top: 2px solid #007acc;
+  }
+  .doc-tab .tab.dim { color: #7f7f7f; background: #2d2d2d; border-top: 2px solid transparent; border-right: 1px solid #1a1a1a; }
+  .doc-body { flex: 1; padding: 26px 40px; overflow: hidden; color: #d4d4d4; font-size: 14px; line-height: 1.75; }
+  .doc-body h1 { font-size: 24px; color: #f0f0f0; border-bottom: 1px solid #3a3a3a; padding-bottom: 10px; margin-bottom: 18px; }
+  .doc-body h2 { font-size: 17px; color: #e8e8e8; margin: 22px 0 10px; display: flex; align-items: center; gap: 8px; }
+  .doc-body h2 .h2bar { width: 4px; height: 16px; background: #007acc; border-radius: 2px; }
+  .fm {
+    background: #26262a; border: 1px solid #3a3a3a; border-left: 3px solid #007acc; border-radius: 6px;
+    padding: 12px 18px; font-size: 13px; color: #9cdcfe; margin-bottom: 8px; line-height: 1.9;
+  }
+  .fm .k { color: #6cb2e8; } .fm .v { color: #ce9178; } .fm .c { color: #6a9955; }
+  .task { display: flex; align-items: flex-start; gap: 10px; padding: 3px 0; }
+  .cb { width: 15px; height: 15px; border-radius: 4px; border: 1.5px solid #5a5a5a; margin-top: 5px; flex-shrink: 0; position: relative; }
+  .cb.done { background: #007acc; border-color: #007acc; }
+  .cb.done::after { content: "✓"; position: absolute; color: #fff; font-size: 11px; left: 2px; top: -2px; }
+  .cb.shelved { border-color: #6a6a6a; background: #3a3a3a; }
+  .cb.shelved::after { content: "–"; position: absolute; color: #9a9a9a; font-size: 12px; left: 2.5px; top: -3px; }
+  .task.done span { color: #7a7a7a; text-decoration: line-through; }
+  .task .sub { color: #b0b0b0; }
+  .task-sub { padding-left: 34px; }
+  .code-inline { background: #333338; border-radius: 4px; padding: 1px 6px; font-size: 12.5px; color: #ce9178; font-family: Consolas, monospace; }
+  .note-text { color: #a9a9a9; font-size: 13.5px; }
+  .muted { color: #6f6f6f; }
+</style>
+</head>
+<body>
+<div class="window">
+
+  <!-- 标题栏 -->
+  <div class="titlebar">
+    <div class="dots"><span></span><span></span><span></span></div>
+    <div class="center">XuFeng — Visual Studio Code</div>
+    <div>— &nbsp;□&nbsp; ✕</div>
+  </div>
+
+  <div class="body">
+
+    <!-- Activity Bar -->
+    <div class="activitybar">
+      <div class="ab-icon">📄</div>
+      <div class="ab-icon">🔍</div>
+      <div class="ab-icon">🌿</div>
+      <div class="ab-icon">🐞</div>
+      <div class="ab-icon">🧩</div>
+      <div class="ab-icon active">▦</div>
+      <div class="spacer"></div>
+      <div class="ab-icon">👤</div>
+      <div class="ab-icon">⚙️</div>
+    </div>
+
+    <!-- 看板主区 -->
+    <div class="board">
+
+      <!-- 工具栏 -->
+      <div class="toolbar">
+        <div class="tb-title">▦ 项目看板</div>
+        <div class="search">🔍 &nbsp;搜索项目… &nbsp;&nbsp;<span class="muted">Ctrl+K</span></div>
+        <div class="dropdown">状态: 全部 ▾</div>
+        <div class="dropdown">类型: 全部 ▾</div>
+        <div class="icon-btn">⟳</div>
+        <div class="grow"></div>
+        <div class="primary-btn">＋ 新建项目</div>
+      </div>
+
+      <div class="columns">
+
+        <!-- 左1: 卡片列表 -->
+        <div class="col-cards">
+          <div class="col-header">项目卡片 <span class="count">4</span></div>
+          <div class="card-list">
+
+            <div class="card selected">
+              <div class="card-top">
+                <div class="card-name">地面站（QGC二次开发）</div>
+                <div class="tag branch">⎇ main</div>
+                <div class="tag qt">Qt</div>
+              </div>
+              <div class="status-line"><span class="dot green"></span>进行中 · 更新于 09-10</div>
+              <div class="focus-line"><b>焦点</b> 电机测试逆映射；UOM上报</div>
+              <div class="progress"><div style="width:78%"></div></div>
+              <div class="card-meta"><span>待办 12 · 问题 2</span><span>78%</span></div>
+              <div class="card-actions">
+                <div class="chip">📂 代码</div><div class="chip">🚀 启动工作区</div><div class="chip">🔗 Repo</div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-top">
+                <div class="card-name">数据大屏</div>
+                <div class="tag branch">⎇ front</div>
+                <div class="tag web">Web</div>
+              </div>
+              <div class="status-line"><span class="dot green"></span>进行中 · 更新于 08-26</div>
+              <div class="focus-line"><b>焦点</b> pm 仓库前端迁移到 front 分支</div>
+              <div class="progress"><div style="width:41%"></div></div>
+              <div class="card-meta"><span>待办 7 · 问题 1</span><span>41%</span></div>
+            </div>
+
+            <div class="card dimmed">
+              <div class="card-top">
+                <div class="card-name">ROS 导航调试</div>
+                <div class="tag branch">⎇ dev</div>
+                <div class="tag ros">ROS</div>
+              </div>
+              <div class="status-line"><span class="dot gray"></span>疑似搁置 · 34 天未更新</div>
+              <div class="progress"><div style="width:63%"></div></div>
+              <div class="card-meta"><span>待办 5 · 问题 3</span><span>63%</span></div>
+            </div>
+
+            <div class="card">
+              <div class="card-top">
+                <div class="card-name">飞控参数标定工具</div>
+                <div class="tag branch">⎇ master</div>
+                <div class="tag web">Web</div>
+              </div>
+              <div class="status-line"><span class="dot yellow"></span>暂停 · 更新于 07-30</div>
+              <div class="progress"><div style="width:20%"></div></div>
+              <div class="card-meta"><span>待办 9</span><span>20%</span></div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 左2: 文件树（全部显示，默认展开，长文件名换行不省略） -->
+        <div class="col-files">
+          <div class="col-header">地面站 · 文档</div>
+          <div class="tree">
+            <div class="tree-item active"><span class="fi">📝</span><span class="fname">README.md</span></div>
+            <div class="tree-item"><span class="fi">📝</span><span class="fname">主分支.md</span></div>
+            <div class="tree-item"><span class="fi">📝</span><span class="fname">TC特供.md</span></div>
+            <div class="tree-item"><span class="fi">📝</span><span class="fname">项目概述.md</span></div>
+            <div class="tree-item folder"><span class="arrow">▾</span><span class="fi">📁</span><span class="fname">VibeCoding</span></div>
+            <div class="tree-item indent-1"><span class="fi">📝</span><span class="fname">PX4页面实现提示词.md</span></div>
+            <div class="tree-item indent-1"><span class="fi">📝</span><span class="fname">嵌入rcsdk-demo方案.md</span></div>
+            <div class="tree-item folder indent-1"><span class="arrow">▾</span><span class="fi">📁</span><span class="fname">已完成</span></div>
+            <div class="tree-item indent-2"><span class="fi">📝</span><span class="fname">QGroundControl-PlanView-APM航线系统总结.md</span></div>
+            <div class="tree-item indent-2"><span class="fi">📝</span><span class="fname">设备配置二级菜单加载机制.md</span></div>
+            <div class="tree-item indent-2"><span class="fi">📝</span><span class="fname">通用和任务页面实施方案.md</span></div>
+            <div class="tree-item indent-2"><span class="fi">📝</span><span class="fname">XF子页面实现计划.md</span></div>
+            <div class="tree-item indent-2"><span class="fi">📝</span><span class="fname">SetupView实现分析.md</span></div>
+            <div class="tree-item indent-2"><span class="fi">📝</span><span class="fname">XFMissionView围栏功能实现方案.md</span></div>
+            <div class="tree-item indent-2"><span class="fi">📝</span><span class="fname">通用页面和任务页面提示词.md</span></div>
+            <div class="tree-item indent-2"><span class="fi">📝</span><span class="fname">XF一级菜单页面实现计划.md</span></div>
+            <div class="tree-item indent-2"><span class="fi">📝</span><span class="fname">NTRIP网络差分注入方案.md</span></div>
+            <div class="tree-item indent-2"><span class="fi">📝</span><span class="fname">FlyView手动居中按钮实现方案.md</span></div>
+            <div class="tree-item indent-2"><span class="fi">📝</span><span class="fname">设备配置6页面移植方案.md</span></div>
+            <div class="tree-item indent-2"><span class="fi">📝</span><span class="fname">仪表盘翻译文本不生效.md</span></div>
+          </div>
+        </div>
+
+        <!-- 右: 文档预览 -->
+        <div class="col-doc">
+          <div class="doc-tab">
+            <div class="tab">📝 README.md ✕</div>
+            <div class="tab dim">主分支.md</div>
+          </div>
+          <div class="doc-body">
+            <h1>地面站（QGC二次开发）</h1>
+            <div class="fm">
+              <span class="k">type:</span> <span class="v">qt</span> &nbsp;&nbsp; <span class="k">status:</span> <span class="v">doing</span> &nbsp;&nbsp; <span class="k">focus:</span> <span class="v">电机测试逆映射；UOM上报</span><br>
+              <span class="k">code:</span> <span class="v">D:\Dev\Proj\QGC5-XF\qgroundcontrolfork</span> &nbsp;&nbsp; <span class="k">repo:</span> <span class="v">https://github.com/XuFeng/qgroundcontrolfork</span><br>
+              <span class="k">tags:</span> <span class="v">[qgc, mavlink, 安卓]</span> &nbsp;&nbsp; <span class="k">branch:</span> <span class="v">main</span> <span class="c"># 可选，缺省时自动读取 code 目录的 git 当前分支</span>
+            </div>
+
+            <h2><span class="h2bar"></span>需求</h2>
+            <div class="task done"><div class="cb done"></div><span>集成 RCSDK，读取信号质量</span></div>
+            <div class="task done"><div class="cb done"></div><span>物理摇杆控制云台</span></div>
+            <div class="task"><div class="cb"></div><span>修改电机测试页面，按钮 1-6 直接对应物理电机编号</span></div>
+            <div class="task task-sub"><div class="cb done"></div><span class="sub">实测 HEXA X 机架顺序为 5,1,4,6,2,3</span></div>
+            <div class="task task-sub"><div class="cb"></div><span class="sub">根据机架参数做逆映射，switch 兜底原逻辑</span></div>
+            <div class="task"><div class="cb"></div><span>RID 上报（接口规范 <span class="code-inline">MH/T 4053</span>，上报到 UOM）</span></div>
+            <div class="task"><div class="cb shelved"></div><span class="muted">任务规划工具栏（暂时搁置）</span></div>
+
+            <h2><span class="h2bar"></span>问题</h2>
+            <div class="note-text">· mavlink analyze 页面右侧被遮挡，暂通过缩放适配<br>· 8 月测试：电机温度参考 MP 首页状态列表 <span class="code-inline">ecsN_temp</span></div>
+
+            <h2><span class="h2bar"></span>笔记</h2>
+            <div class="note-text">· 云卓遥控器数传：udp 14551 / 127.0.0.1:14552<br>· 翻译更新流程：先 lupdate，discard json 的 ts，只翻 source</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
