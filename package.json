@@ -56,7 +56,8 @@
     "build": "node esbuild.js",
     "watch": "node esbuild.js --watch",
     "typecheck": "tsc --noEmit",
-    "package": "node esbuild.js --production && vsce package --no-dependencies"
+    "package": "node esbuild.js --production && vsce package --no-dependencies",
+    "deploy": "node scripts/deploy.js"
   },
   "dependencies": {
     "gray-matter": "^4.0.3"

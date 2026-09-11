@@ -11,6 +11,14 @@ npm run watch    # 监听模式编译
 npm run typecheck
 ```
 
+## 更新已安装的插件（一键部署）
+
+```bash
+npm run deploy   # 编译 + 覆盖安装到本机所有 VS Code 扩展目录
+```
+
+自动部署到 Windows 宿主（`~/.vscode/extensions`）与 WSL 远程宿主（`~/.vscode-server/extensions`，自动探测发行版）。部署后在 VS Code 中 `Ctrl+Shift+P` →「Developer: Reload Window」即生效，无需再手动 Install from VSIX。
+
 ## 调试
 
 1. 用 VS Code 打开本目录，按 `F5` 启动扩展开发宿主（Extension Development Host）
