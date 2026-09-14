@@ -16,6 +16,7 @@
   let searchText = '';
   let filterStatus = '';
   let filterType = '';
+  let boardConfig = {};   // 随 state 消息下发的 .projectboard.json 配置
 
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s)
@@ -253,6 +254,29 @@
         loadingDoc = false;
       }
     }
+    // 滚动定位：README 打开后自动滚动到最新一条未勾选任务处；其他文档回到顶部
+    // （复用实例切换文档会继承上次的滚动位置，必须显式复位）
+    setTimeout(() => {
+      if (isHubFile(filePath)) {
+        scrollToLatestUnchecked();
+      } else {
+        const reset = $('editor').querySelector('.vditor-ir .vditor-reset');
+        if (reset) { reset.scrollTop = 0; }
+      }
+    }, 800);
+  }
+
+  function isHubFile(filePath) {
+    const hub = boardConfig.hubFile || 'README.md';
+    return filePath.split(/[\\/]/).pop() === hub;
+  }
+
+  /** 滚动到文档中最后一条未勾选任务（文档顺序最新）；没有则不滚动 */
+  function scrollToLatestUnchecked() {
+    const inputs = $('editor').querySelectorAll('.vditor-ir input[type="checkbox"]:not(:checked)');
+    if (!inputs.length) { return; }
+    const last = inputs[inputs.length - 1].closest('li') || inputs[inputs.length - 1];
+    last.scrollIntoView({ block: 'center' });
   }
 
   function createVditor(container, content) {
@@ -359,6 +383,7 @@
     switch (msg.type) {
       case 'state': {
         projects = msg.projects || [];
+        if (msg.config) { boardConfig = msg.config; }
         if (msg.activeId) { activeId = msg.activeId; }
         if (activeId && !projects.some((p) => p.id === activeId)) { activeId = ''; }
         // 类型筛选下拉从现有项目自动收集

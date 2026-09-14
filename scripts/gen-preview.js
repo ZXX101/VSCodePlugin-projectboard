@@ -126,6 +126,12 @@ const FIXTURE = path.resolve(__dirname, '..', 'test-fixtures', 'XuFeng');
   };
   // 模拟宿主在 3 秒后推送另一篇文档（等价于用户点击文档树切换）
   window.addEventListener('load', function () {
+    // 2.5s 时（README 自动滚动已触发）记录滚动位置
+    window.__README_SCROLL__ = null;
+    setTimeout(function () {
+      var r = document.querySelector('.vditor-ir .vditor-reset');
+      window.__README_SCROLL__ = r ? r.scrollTop : -1;
+    }, 2500);
     setTimeout(function () {
       var D = window.__DATA__;
       window.dispatchEvent(new MessageEvent('message', {
@@ -146,11 +152,9 @@ const FIXTURE = path.resolve(__dirname, '..', 'test-fixtures', 'XuFeng');
         return sel + ' h=' + el.clientHeight + '/' + el.scrollHeight + ' ovY=' + cs.overflowY;
       });
       var ir = document.querySelector('.vditor-ir');
-      parts.push('ir子节点数=' + (ir ? ir.children.length : '-'));
-      parts.push('ir首子元素=' + (ir && ir.children[0] ? ir.children[0].tagName + '.' + ir.children[0].className : '-'));
-      var reset = document.querySelector('.vditor-ir [contenteditable]') || document.querySelector('.vditor-ir .vditor-reset');
-      if (reset) { reset.scrollTop = 800; parts.push('reset scrollTop=' + reset.scrollTop); }
-      if (ir) { ir.scrollTop = 800; parts.push('ir scrollTop=' + ir.scrollTop); }
+      var reset = document.querySelector('.vditor-ir .vditor-reset');
+      parts.push('README加载后scrollTop=' + window.__README_SCROLL__ + '（>0 自动滚动生效）');
+      parts.push('主分支加载后scrollTop=' + (reset ? reset.scrollTop : -1) + '（应为 0，非 README 不滚动）');
       dbg.textContent = 'CHAIN ' + parts.join(' | ');
       document.body.appendChild(dbg);
     }, 4500);
