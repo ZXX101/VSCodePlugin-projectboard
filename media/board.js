@@ -257,9 +257,32 @@
     activeId = id;
     renderCards();
     const p = projects.find((x) => x.id === id);
-    $('treeHeader').textContent = (p ? p.name : '') + ' · 文档';
+    $('treeTitle').textContent = (p ? p.name : '') + ' · 文档';
     vscode.postMessage({ type: 'selectProject', id });
   }
+
+  // ── 栏目展开/收起（状态持久化到 webview state） ──
+  function setupColToggle(colId, btnId, stateKey) {
+    const col = $(colId);
+    const btn = $(btnId);
+    const apply = (collapsed) => {
+      col.classList.toggle('collapsed', collapsed);
+      btn.textContent = collapsed ? '»' : '«';
+      btn.title = collapsed ? '展开' : '收起';
+    };
+    const persisted = (vscode.getState() || {})[stateKey];
+    apply(!!persisted);
+    const toggle = () => {
+      const collapsed = !col.classList.contains('collapsed');
+      apply(collapsed);
+      vscode.setState(Object.assign({}, vscode.getState(), { [stateKey]: collapsed }));
+    };
+    btn.addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
+    // 收起态下点击窄条任意位置也可展开
+    col.addEventListener('click', () => { if (col.classList.contains('collapsed')) { toggle(); } });
+  }
+  setupColToggle('colCards', 'toggleCards', 'cardsCollapsed');
+  setupColToggle('colFiles', 'toggleFiles', 'filesCollapsed');
 
   // ── 工具栏 ──
   $('search').addEventListener('input', (e) => { searchText = e.target.value; renderCards(); });

@@ -55,6 +55,21 @@ html, body, #app {
   margin-left: 8px; padding: 1px 8px; border-radius: 10px; font-size: 11px;
   background: var(--vscode-badge-background); color: var(--vscode-badge-foreground);
 }
+.col-header .col-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.col-toggle {
+  flex-shrink: 0; margin-left: 6px; padding: 1px 7px; border: none; border-radius: 4px;
+  background: transparent; color: inherit; font-size: 12px; line-height: 1.4; cursor: pointer; opacity: .55;
+}
+.col-toggle:hover { opacity: 1; background: var(--vscode-toolbar-hoverBackground, #3a3a3a); }
+/* 栏目收起态：缩成窄条，内容隐藏，只留展开按钮 */
+.col-cards.collapsed, .col-files.collapsed { width: 36px; min-width: 36px; }
+.col-cards.collapsed .col-title,
+.col-files.collapsed .col-title,
+.col-cards.collapsed .card-list,
+.col-files.collapsed .tree { display: none; }
+.col-cards.collapsed .col-header,
+.col-files.collapsed .col-header { padding: 0 4px; border-bottom: none; }
+.col-cards.collapsed, .col-files.collapsed { cursor: pointer; }
 
 /* ── 左1: 卡片列表 ── */
 .col-cards {

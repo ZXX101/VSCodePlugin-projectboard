@@ -212,12 +212,12 @@ export class BoardPanel {
     <button id="btnNew" class="primary-btn">＋ 新建项目</button>
   </div>
   <div class="columns">
-    <div class="col-cards">
-      <div class="col-header">项目卡片 <span class="count" id="cardCount">0</span></div>
+    <div class="col-cards" id="colCards">
+      <div class="col-header"><span class="col-title">项目卡片 <span class="count" id="cardCount">0</span></span><button class="col-toggle" id="toggleCards" title="收起卡片栏">«</button></div>
       <div class="card-list" id="cardList"></div>
     </div>
-    <div class="col-files">
-      <div class="col-header" id="treeHeader">文档</div>
+    <div class="col-files" id="colFiles">
+      <div class="col-header"><span class="col-title" id="treeTitle">文档</span><button class="col-toggle" id="toggleFiles" title="收起文档栏">«</button></div>
       <div class="tree" id="tree"></div>
     </div>
     <div class="col-doc">

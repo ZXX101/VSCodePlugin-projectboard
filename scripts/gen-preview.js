@@ -70,12 +70,12 @@ const FIXTURE = path.resolve(__dirname, '..', 'test-fixtures', 'XuFeng');
     <button id="btnNew" class="primary-btn">＋ 新建项目</button>
   </div>
   <div class="columns">
-    <div class="col-cards">
-      <div class="col-header">项目卡片 <span class="count" id="cardCount">0</span></div>
+    <div class="col-cards" id="colCards">
+      <div class="col-header"><span class="col-title">项目卡片 <span class="count" id="cardCount">0</span></span><button class="col-toggle" id="toggleCards" title="收起卡片栏">«</button></div>
       <div class="card-list" id="cardList"></div>
     </div>
-    <div class="col-files">
-      <div class="col-header" id="treeHeader">文档</div>
+    <div class="col-files" id="colFiles">
+      <div class="col-header"><span class="col-title" id="treeTitle">文档</span><button class="col-toggle" id="toggleFiles" title="收起文档栏">«</button></div>
       <div class="tree" id="tree"></div>
     </div>
     <div class="col-doc">
@@ -96,7 +96,10 @@ const FIXTURE = path.resolve(__dirname, '..', 'test-fixtures', 'XuFeng');
   // 回归测试：3 秒后自动切换到第二篇文档，验证切换渲染（bug: 切换后空白）
   window.__AUTO_SWITCH__ = ${JSON.stringify({ delayMs: 3000 })};
   window.acquireVsCodeApi = function () {
+    var __state = {};
     return {
+      getState: function () { return __state; },
+      setState: function (s) { __state = s || {}; },
       postMessage: function (msg) {
         var D = window.__DATA__;
         var respond = function (data) {
@@ -127,9 +130,11 @@ const FIXTURE = path.resolve(__dirname, '..', 'test-fixtures', 'XuFeng');
         data: { type: 'doc', path: D.secondDocPath, content: D.secondDocContent },
       }));
     }, window.__AUTO_SWITCH__.delayMs);
-    // 调试：4.5 秒后测量布局链并实际滚动编辑区
+    // 调试：4.5 秒后测量布局链、收起文档栏演示、并实际滚动编辑区
     setTimeout(function () {
-      var sels = ['#editor', '.vditor-content', '.vditor-ir', '.vditor-ir .vditor-reset', '.vditor-ir pre', '.vditor-ir [contenteditable]'];
+      // 演示：收起左2文档栏
+      document.getElementById('toggleFiles').click();
+      var sels = ['#editor', '.vditor-content', '.vditor-ir', '.vditor-ir .vditor-reset'];
       var dbg = document.createElement('div');
       dbg.id = 'debug';
       var parts = sels.map(function (sel) {
