@@ -28,6 +28,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (store.isSelfWrite(uri.fsPath)) { return; }
     if (refreshTimer) { clearTimeout(refreshTimer); }
     refreshTimer = setTimeout(() => { void store.refresh(); }, 500);
+    // 外部修改的文件若是看板当前打开的文档，同步重载其内容
+    panel.externalFileChanged(uri.fsPath);
   };
   watcher.onDidCreate(scheduleRefresh);
   watcher.onDidChange(scheduleRefresh);

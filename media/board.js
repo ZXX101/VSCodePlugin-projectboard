@@ -11,6 +11,8 @@
   let vditor = null;
   let saveTimer = null;
   let loadingDoc = false;   // 文档装载期间屏蔽 input 事件
+  let docDirty = false;     // Vditor 中有未保存的编辑（防外部重载覆盖）
+  let lastDocContent = '';  // 当前文档已知内容（内容未变时不重载，避免打断光标）
   let searchText = '';
   let filterStatus = '';
   let filterType = '';
@@ -171,6 +173,8 @@
   // ── Vditor 编辑器 ──
   function loadDoc(filePath, content) {
     currentDocPath = filePath;
+    lastDocContent = content;
+    docDirty = false;
     renderTree(); // 刷新高亮
     $('docPath').textContent = filePath;
     $('saveState').textContent = '';
@@ -229,6 +233,7 @@
       after: () => { loadingDoc = false; },
       input: () => {
         if (loadingDoc) { return; }
+        docDirty = true;
         $('saveState').textContent = '编辑中…';
         if (saveTimer) { clearTimeout(saveTimer); }
         saveTimer = setTimeout(() => {
@@ -291,10 +296,14 @@
         }
         break;
       case 'doc':
+        // 正在编辑时不被外部重载覆盖；内容未变化时不重载（避免打断光标）
+        if (msg.path === currentDocPath && (docDirty || msg.content === lastDocContent)) { break; }
         loadDoc(msg.path, msg.content);
         break;
       case 'saved':
         if (msg.path === currentDocPath) {
+          docDirty = false;
+          if (vditor) { lastDocContent = vditor.getValue(); }
           $('saveState').textContent = '已保存 ' + msg.time;
         }
         break;

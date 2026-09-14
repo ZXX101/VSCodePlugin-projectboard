@@ -62,6 +62,15 @@ export class BoardPanel {
     this.openDoc(hub);
   }
 
+  /** 外部（如原生编辑器）修改了文件：若是当前打开的文档则重载内容 */
+  externalFileChanged(filePath: string): void {
+    if (!this.panel || filePath !== this.currentDoc) { return; }
+    if (this.reloadTimer) { clearTimeout(this.reloadTimer); }
+    this.reloadTimer = setTimeout(() => this.openDoc(filePath), 300);
+  }
+
+  private reloadTimer?: NodeJS.Timeout;
+
   private openDoc(filePath: string): void {
     try {
       this.currentDoc = filePath;
@@ -101,6 +110,8 @@ export class BoardPanel {
         break;
       case 'refresh':
         await this.store.refresh();
+        // 修复：刷新按钮也要重载当前打开的文档内容（之前只重扫项目统计）
+        if (this.currentDoc) { this.openDoc(this.currentDoc); }
         break;
       case 'newProject':
         await this.store.createProjectInteractive();
