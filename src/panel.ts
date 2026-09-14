@@ -215,10 +215,12 @@ export class BoardPanel {
     <div class="col-cards" id="colCards">
       <div class="col-header"><span class="col-title">项目卡片 <span class="count" id="cardCount">0</span></span><button class="col-toggle" id="toggleCards" title="收起卡片栏">«</button></div>
       <div class="card-list" id="cardList"></div>
+      <div class="mini-list" id="cardsMini"></div>
     </div>
     <div class="col-files" id="colFiles">
       <div class="col-header"><span class="col-title" id="treeTitle">文档</span><button class="col-toggle" id="toggleFiles" title="收起文档栏">«</button></div>
       <div class="tree" id="tree"></div>
+      <div class="mini-list" id="filesMini"></div>
     </div>
     <div class="col-doc">
       <div class="doc-header">

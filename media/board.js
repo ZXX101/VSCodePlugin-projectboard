@@ -99,6 +99,31 @@
       });
       list.appendChild(el);
     }
+    renderCardsMini(shown);
+  }
+
+  /** 取名称的首个汉字或字母（用于收起态缩略徽章） */
+  function firstChar(name) {
+    const m = String(name || '').match(/[A-Za-z0-9一-鿿]/);
+    return m ? m[0].toUpperCase() : '?';
+  }
+
+  /** 收起态：卡片栏的项目首字徽章列表 */
+  function renderCardsMini(shown) {
+    const mini = $('cardsMini');
+    mini.innerHTML = '';
+    for (const p of shown) {
+      const el = document.createElement('div');
+      el.className = 'mini-item' + (p.id === activeId ? ' sel' : '');
+      el.title = p.name;
+      const dotCls = p.stale ? 'stale' : p.status;
+      el.innerHTML = esc(firstChar(p.name)) + '<span class="mini-dot dot ' + dotCls + '"></span>';
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectProject(p.id);
+      });
+      mini.appendChild(el);
+    }
   }
 
   // ── 卡片右键菜单（修改状态） ──
@@ -135,11 +160,32 @@
     tree.innerHTML = '';
     if (!treeNodes.length) {
       tree.innerHTML = '<div class="tree-empty">选择左侧项目卡片查看文档</div>';
+      renderFilesMini();
       return;
     }
     const frag = document.createDocumentFragment();
     appendNodes(frag, treeNodes, 0);
     tree.appendChild(frag);
+    renderFilesMini();
+  }
+
+  /** 收起态：文档树首字徽章列表（子目录内容统一显示所属根目录文件夹首字） */
+  function renderFilesMini() {
+    const mini = $('filesMini');
+    mini.innerHTML = '';
+    const walk = (nodes, rootName) => {
+      for (const node of nodes) {
+        const isRoot = !rootName;
+        const charName = isRoot ? node.name : rootName;
+        const el = document.createElement('div');
+        el.className = 'mini-item' + (node.isDir ? ' folder-mini' : '');
+        el.title = node.path.split(/[\\/]/).pop();
+        el.textContent = firstChar(charName);
+        mini.appendChild(el);
+        if (node.isDir && node.children) { walk(node.children, isRoot ? node.name : rootName); }
+      }
+    };
+    walk(treeNodes, null);
   }
 
   function appendNodes(parent, nodes, depth) {
@@ -262,6 +308,8 @@
   }
 
   // ── 栏目展开/收起（状态持久化到 webview state） ──
+  const HOVER_OPEN_DELAY = 400; // 收起态下悬停超过该阈值自动展开（ms）
+
   function setupColToggle(colId, btnId, stateKey) {
     const col = $(colId);
     const btn = $(btnId);
@@ -275,11 +323,22 @@
     const toggle = () => {
       const collapsed = !col.classList.contains('collapsed');
       apply(collapsed);
+      col.classList.remove('hover-open');
       vscode.setState(Object.assign({}, vscode.getState(), { [stateKey]: collapsed }));
     };
     btn.addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
-    // 收起态下点击窄条任意位置也可展开
-    col.addEventListener('click', () => { if (col.classList.contains('collapsed')) { toggle(); } });
+    // 收起态下点击窄条空白处也可展开
+    col.addEventListener('click', () => { if (col.classList.contains('collapsed') && !col.classList.contains('hover-open')) { toggle(); } });
+    // 悬停意图：仅收起态生效，超过阈值自动展开，移开自动收回（不改变持久化的收起状态）
+    let hoverTimer = null;
+    col.addEventListener('mouseenter', () => {
+      if (!col.classList.contains('collapsed')) { return; }
+      hoverTimer = setTimeout(() => col.classList.add('hover-open'), HOVER_OPEN_DELAY);
+    });
+    col.addEventListener('mouseleave', () => {
+      if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
+      col.classList.remove('hover-open');
+    });
   }
   setupColToggle('colCards', 'toggleCards', 'cardsCollapsed');
   setupColToggle('colFiles', 'toggleFiles', 'filesCollapsed');

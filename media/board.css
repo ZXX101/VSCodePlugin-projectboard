@@ -75,6 +75,42 @@ html, body, #app {
 .col-files.collapsed .col-toggle { margin-left: 0; }
 .col-cards.collapsed, .col-files.collapsed { cursor: pointer; }
 
+/* ── 收起态缩略信息（首字徽章） ── */
+.mini-list { display: none; }
+.col-cards.collapsed .mini-list,
+.col-files.collapsed .mini-list {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 8px 0; flex: 1; overflow-y: auto;
+}
+.mini-item {
+  width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 600;
+  background: var(--vscode-input-background, #2d2d2d);
+  border: 1px solid var(--vscode-widget-border, #3a3a3a);
+  color: var(--vscode-foreground);
+}
+.mini-item.folder-mini { color: #dcb67a; }
+.mini-item.sel { border-color: var(--vscode-focusBorder, #007acc); box-shadow: 0 0 0 1px var(--vscode-focusBorder, #007acc); }
+.mini-item .mini-dot { position: absolute; right: -3px; top: -3px; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--vscode-editor-background, #1e1e1e); }
+
+/* ── 收起态悬停自动展开（不改变收起状态，移开自动收回） ── */
+.col-cards.collapsed.hover-open { width: 320px; min-width: 320px; cursor: default; }
+.col-files.collapsed.hover-open { width: 290px; min-width: 290px; cursor: default; }
+.col-cards.collapsed.hover-open .col-title,
+.col-files.collapsed.hover-open .col-title { display: block; }
+.col-cards.collapsed.hover-open .card-list { display: flex; }
+.col-files.collapsed.hover-open .tree { display: block; }
+.col-cards.collapsed.hover-open .mini-list,
+.col-files.collapsed.hover-open .mini-list { display: none; }
+.col-cards.collapsed.hover-open .col-header,
+.col-files.collapsed.hover-open .col-header {
+  padding: 0 14px; justify-content: normal;
+  border-bottom: 1px solid var(--vscode-panel-border, #2b2b2b);
+}
+.col-cards.collapsed.hover-open .col-toggle,
+.col-files.collapsed.hover-open .col-toggle { margin-left: 6px; }
+
 /* ── 左1: 卡片列表 ── */
 .col-cards {
   width: 320px; flex-shrink: 0; display: flex; flex-direction: column;
