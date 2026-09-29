@@ -340,8 +340,9 @@
       btn.textContent = collapsed ? '»' : '«';
       btn.title = collapsed ? '展开' : '收起';
     };
+    // 默认收起；仅当用户明确持久化过展开状态时才展开
     const persisted = (vscode.getState() || {})[stateKey];
-    apply(!!persisted);
+    apply(persisted === undefined ? true : !!persisted);
     const toggle = () => {
       const collapsed = !col.classList.contains('collapsed');
       apply(collapsed);

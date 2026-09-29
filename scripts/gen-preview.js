@@ -138,10 +138,8 @@ const FIXTURE = path.resolve(__dirname, '..', 'test-fixtures', 'XuFeng');
         data: { type: 'doc', path: D.secondDocPath, content: D.secondDocContent },
       }));
     }, window.__AUTO_SWITCH__.delayMs);
-    // 调试：4.5 秒后测量布局链、收起文档栏演示、并实际滚动编辑区
+    // 调试：4.5 秒后测量布局链并实际滚动编辑区（默认已收起文档栏，无需再演示收起）
     setTimeout(function () {
-      // 演示：收起左2文档栏
-      document.getElementById('toggleFiles').click();
       var sels = ['#editor', '.vditor-content', '.vditor-ir', '.vditor-ir .vditor-reset'];
       var dbg = document.createElement('div');
       dbg.id = 'debug';
