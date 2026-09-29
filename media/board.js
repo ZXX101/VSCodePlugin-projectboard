@@ -170,23 +170,21 @@
     renderFilesMini();
   }
 
-  /** 收起态：文档树首字徽章列表（子目录内容统一显示所属根目录文件夹首字） */
+  /** 收起态：文档树首字徽章列表（每个条目显示自己名字的首字） */
   function renderFilesMini() {
     const mini = $('filesMini');
     mini.innerHTML = '';
-    const walk = (nodes, rootName) => {
+    const walk = (nodes) => {
       for (const node of nodes) {
-        const isRoot = !rootName;
-        const charName = isRoot ? node.name : rootName;
         const el = document.createElement('div');
         el.className = 'mini-item' + (node.isDir ? ' folder-mini' : '');
         el.title = node.path.split(/[\\/]/).pop();
-        el.textContent = firstChar(charName);
+        el.textContent = firstChar(node.name);
         mini.appendChild(el);
-        if (node.isDir && node.children) { walk(node.children, isRoot ? node.name : rootName); }
+        if (node.isDir && node.children) { walk(node.children); }
       }
     };
-    walk(treeNodes, null);
+    walk(treeNodes);
   }
 
   function appendNodes(parent, nodes, depth) {
