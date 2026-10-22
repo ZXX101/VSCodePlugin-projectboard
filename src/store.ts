@@ -31,9 +31,6 @@ export interface Project {
   name: string;
   type: string;
   status: string;        // doing / paused / blocked / done
-  focus: string;
-  /** focus 为自动识别（frontmatter 未填写）时为 true */
-  focusAuto: boolean;
   code: string;
   repo: string;
   branch: string;
@@ -149,9 +146,6 @@ export class Store {
     const branch = this.resolveBranch(code, str(d.branch));
     const updated = stats.updated || mtime(hub);
     const staleDays = this.config.staleDays;
-    // focus：frontmatter 手动填写优先；留空时自动识别最新至多两条未勾选任务
-    const manualFocus = str(d.focus);
-    const autoFocus = stats.focusItems.join('；');
 
     return {
       id: dir,
@@ -159,8 +153,6 @@ export class Store {
       name: str(d.name) || dirName,
       type: str(d.type) || 'other',
       status: str(d.status) || 'doing',
-      focus: manualFocus || autoFocus,
-      focusAuto: !manualFocus && autoFocus.length > 0,
       code,
       repo: str(d.repo),
       branch,
@@ -178,28 +170,18 @@ export class Store {
     };
   }
 
-  /** 统计项目文件夹内全部 md 的复选框（跳过归档目录与草稿区块）、问题数与自动焦点 */
-  private computeStats(dir: string, hub: string): { todo: number; done: number; shelved: number; problems: number; updated: number; focusItems: string[] } {
+  /** 统计项目文件夹内全部 md 的复选框（跳过归档目录与草稿区块）与问题数 */
+  private computeStats(dir: string, hub: string): { todo: number; done: number; shelved: number; problems: number; updated: number } {
     let todo = 0, done = 0, shelved = 0, updated = 0;
-    const focusItems: string[] = [];
-    // 按修改时间升序处理：最近编辑的文件排在最后，其未勾选项最"新"
-    const files = this.walkMd(dir)
-      .map((f) => ({ f, t: mtime(f) }))
-      .sort((a, b) => a.t - b.t);
-    for (const { f: file, t } of files) {
-      updated = Math.max(updated, t);
+    for (const file of this.walkMd(dir)) {
+      updated = Math.max(updated, mtime(file));
       let content: string;
       try { content = fs.readFileSync(file, 'utf8'); } catch { continue; }
       const stripped = stripSection(content.split('\n'), '草稿').join('\n');
       const re = /^[-*]\s+\[([ xX-])\]\s*(.*)$/gm;
       let m: RegExpExecArray | null;
       while ((m = re.exec(stripped)) !== null) {
-        if (m[1] === ' ') {
-          todo++;
-          // 自动焦点候选：未勾选项的文本（过滤空占位项）
-          const text = cleanTaskText(m[2]);
-          if (text.length >= 2) { focusItems.push(text); }
-        }
+        if (m[1] === ' ') { todo++; }
         else if (m[1] === '-') { shelved++; }
         else { done++; }
       }
@@ -211,8 +193,7 @@ export class Store {
       problems = extractSection(hubLines, '问题')
         .filter((l) => l.trim() && !/^#{1,6}\s/.test(l)).length;
     } catch { /* ignore */ }
-    // 取最后（最新）至多两条作为自动焦点
-    return { todo, done, shelved, problems, updated, focusItems: focusItems.slice(-2) };
+    return { todo, done, shelved, problems, updated };
   }
 
   private walkMd(dir: string): string[] {
@@ -418,7 +399,6 @@ export class Store {
       // 自定义类型可能含冒号、# 等 YAML 特殊字符，按字符串写入以保证再次扫描无损。
       `type: ${JSON.stringify(type)}\n` +
       `status: doing\n` +
-      `focus: \n` +
       `code: \n` +
       `repo: \n` +
       `branch: \n` +
@@ -457,17 +437,6 @@ function str(v: unknown): string {
 
 function mtime(file: string): number {
   try { return fs.statSync(file).mtimeMs; } catch { return 0; }
-}
-
-/** 清理任务文本用于焦点展示：去 Markdown 语法、去尾部标点、截断 30 字 */
-function cleanTaskText(raw: string): string {
-  let t = raw.trim();
-  t = t.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');   // [文字](链接) → 文字
-  t = t.replace(/[`*]/g, '');                        // 行内代码/粗体标记
-  t = t.replace(/\s+/g, ' ').trim();
-  t = t.replace(/[。；;，,.\s]+$/, '');               // 尾部标点
-  if (t.length > 30) { t = t.slice(0, 30) + '…'; }
-  return t;
 }
 
 /** 删除指定名称的区块（从标题行到下一个同级或更高级标题之前） */

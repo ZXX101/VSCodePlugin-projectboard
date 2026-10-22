@@ -33,7 +33,7 @@
       if (filterStatus && filterStatus !== 'stale' && p.status !== filterStatus) { return false; }
       if (filterType && p.type !== filterType) { return false; }
       if (kw) {
-        const hay = (p.name + ' ' + p.dirName + ' ' + p.focus + ' ' + (p.tags || []).join(' ')).toLowerCase();
+        const hay = (p.name + ' ' + p.dirName + ' ' + (p.tags || []).join(' ')).toLowerCase();
         if (!hay.includes(kw)) { return false; }
       }
       return true;
@@ -65,7 +65,6 @@
           '<div class="tag type ' + esc(p.type) + '">' + esc(p.type) + '</div>' +
         '</div>' +
         '<div class="status-line"><span class="dot ' + dotCls + '"></span>' + esc(statusText) + '</div>' +
-        (p.focus ? '<div class="focus-line" title="' + esc(p.focus) + '"><b>焦点</b> ' + esc(p.focus) + '</div>' : '') +
         '<div class="progress"><div style="width:' + p.progress + '%"></div></div>' +
         '<div class="card-meta"><span>' + esc(metaBits.join(' · ') || '暂无待办') + '</span><span>' + p.progress + '%</span></div>' +
         '<div class="card-actions">' +

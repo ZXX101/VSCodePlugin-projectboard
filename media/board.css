@@ -146,12 +146,6 @@ html, body, #app {
 .dot.done { background: #3794ff; }
 .dot.stale { background: #6a6a6a; }
 
-.focus-line {
-  font-size: 11.5px; opacity: .85; margin-bottom: 8px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.focus-line b { color: #d7ba7d; font-weight: 600; }
-
 .progress { height: 5px; border-radius: 3px; overflow: hidden; margin-bottom: 5px; background: var(--vscode-input-background, #3c3c3c); }
 .progress > div { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #007acc, #2b9ce8); }
 .card-meta { display: flex; justify-content: space-between; font-size: 10.5px; opacity: .55; }

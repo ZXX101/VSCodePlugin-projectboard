@@ -197,7 +197,7 @@ export class BoardPanel {
 <div id="app">
   <div class="toolbar">
     <div class="tb-title">▦ 项目看板</div>
-    <input id="search" class="search" placeholder="搜索项目名 / 标签 / 焦点…" />
+    <input id="search" class="search" placeholder="搜索项目名 / 标签…" />
     <select id="filterStatus" class="dropdown">
       <option value="">状态: 全部</option>
       <option value="doing">进行中</option>
