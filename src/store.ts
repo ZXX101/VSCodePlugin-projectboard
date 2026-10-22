@@ -344,6 +344,40 @@ export class Store {
 
   // ── 新建项目 ──────────────────────────────────────────────
 
+  private async pickProjectType(): Promise<string | undefined> {
+    const types = [...new Set(['web', 'qt', 'ros', 'other', ...this.projects.map((p) => p.type)])];
+    const picker = vscode.window.createQuickPick();
+    picker.title = '新建项目（3/3）';
+    picker.placeholder = '选择已有类型，或输入新类型后按回车创建';
+    picker.items = types.map((label) => ({ label }));
+    return new Promise((resolve) => {
+      let result: string | undefined;
+      const subscriptions = [
+        picker.onDidChangeValue((value) => {
+          const input = value.trim();
+          const items: vscode.QuickPickItem[] = types.map((label) => ({ label }));
+          // 保留原始类型名作为 label，避免把“新建类型”的提示文字写入 frontmatter。
+          if (input && !types.includes(input)) {
+            items.unshift({ label: input, description: '新类型（回车创建）', alwaysShow: true });
+          }
+          picker.items = items;
+        }),
+        picker.onDidAccept(() => {
+          const value = picker.selectedItems[0]?.label ?? picker.value;
+          if (!value.trim()) { return; }
+          result = value.trim();
+          picker.hide();
+        }),
+        picker.onDidHide(() => {
+          subscriptions.forEach((subscription) => subscription.dispose());
+          picker.dispose();
+          resolve(result);
+        }),
+      ];
+      picker.show();
+    });
+  }
+
   async createProjectInteractive(): Promise<void> {
     const folders = await vscode.window.showOpenDialog({
       title: '新建项目（1/3）：选择存放文件夹',
@@ -367,10 +401,7 @@ export class Store {
       },
     });
     if (!name) { return; }
-    const type = await vscode.window.showQuickPick(['web', 'qt', 'ros', 'other'], {
-      title: '新建项目（3/3）',
-      placeHolder: '项目类型',
-    });
+    const type = await this.pickProjectType();
     if (!type) { return; }
 
     const dir = path.join(parentDir, name.trim());
@@ -384,7 +415,8 @@ export class Store {
     const template =
       `---\n` +
       `name: ${JSON.stringify(name.trim())}\n` +
-      `type: ${type}\n` +
+      // 自定义类型可能含冒号、# 等 YAML 特殊字符，按字符串写入以保证再次扫描无损。
+      `type: ${JSON.stringify(type)}\n` +
       `status: doing\n` +
       `focus: \n` +
       `code: \n` +
