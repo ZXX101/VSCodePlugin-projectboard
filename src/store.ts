@@ -485,9 +485,9 @@ export class Store {
     }
     const template =
       `## 需求\n\n- [ ] \n\n` +
+      `## 草稿\n\n\n` +
       `## 问题\n\n\n` +
-      `## 笔记\n\n\n` +
-      `## 草稿\n`;
+      `## 笔记\n`;
     fs.writeFileSync(path.join(dir, this.config.hubFile), template, 'utf8');
     // 白名单相对路径始终以 projectsRoot 为基准；跨盘时 relative 返回绝对路径。
     this.registerProjectDir(path.relative(this.projectsRootAbs(), dir), {
