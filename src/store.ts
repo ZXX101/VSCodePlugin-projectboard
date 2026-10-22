@@ -7,7 +7,7 @@ import { toFsPath } from './paths';
 export interface BoardConfig {
   /** 检测目录白名单：只统计列表中的项目目录；为空则不读取任何目录 */
   projectDirs: string[];
-  /** 新建项目的存放位置，兼作 projectDirs 相对条目的解析基准 */
+  /** 新建项目时的默认存放位置，兼作 projectDirs 相对条目的解析基准 */
   projectsRoot: string;
   hubFile: string;
   staleDays: number;
@@ -345,28 +345,45 @@ export class Store {
   // ── 新建项目 ──────────────────────────────────────────────
 
   async createProjectInteractive(): Promise<void> {
+    const folders = await vscode.window.showOpenDialog({
+      title: '新建项目（1/3）：选择存放文件夹',
+      openLabel: '在此文件夹下新建项目',
+      defaultUri: vscode.Uri.file(this.projectsRootAbs()),
+      canSelectFiles: false,
+      canSelectFolders: true,
+      canSelectMany: false,
+    });
+    if (!folders?.length) { return; }
+    const parentDir = folders[0].fsPath;
     const name = await vscode.window.showInputBox({
-      title: '新建项目（1/2）',
-      prompt: '项目名称（将作为文件夹名）',
+      title: '新建项目（2/3）',
+      prompt: `项目名称（将在 ${parentDir} 下新建同名文件夹）`,
       validateInput: (v) => {
         if (!v.trim()) { return '名称不能为空'; }
+        if (v.trim() === '.' || v.trim() === '..') { return '名称不能为 . 或 ..'; }
         if (/[\\/:*?"<>|]/.test(v)) { return '名称不能包含 \\ / : * ? " < > |'; }
-        if (fs.existsSync(path.join(this.projectsRootAbs(), v.trim()))) { return '同名文件夹已存在'; }
+        if (fs.existsSync(path.join(parentDir, v.trim()))) { return '所选位置已有同名文件或文件夹'; }
         return undefined;
       },
     });
     if (!name) { return; }
     const type = await vscode.window.showQuickPick(['web', 'qt', 'ros', 'other'], {
-      title: '新建项目（2/2）',
+      title: '新建项目（3/3）',
       placeHolder: '项目类型',
     });
     if (!type) { return; }
 
-    const dir = path.join(this.projectsRootAbs(), name.trim());
-    fs.mkdirSync(dir, { recursive: true });
+    const dir = path.join(parentDir, name.trim());
+    // 不递归创建：用户填完后目录可能已被其他程序创建，必须避免覆盖已有项目。
+    try {
+      fs.mkdirSync(dir);
+    } catch (error) {
+      void vscode.window.showErrorMessage(`无法创建项目：${error instanceof Error ? error.message : String(error)}`);
+      return;
+    }
     const template =
       `---\n` +
-      `name: ${name.trim()}\n` +
+      `name: ${JSON.stringify(name.trim())}\n` +
       `type: ${type}\n` +
       `status: doing\n` +
       `focus: \n` +
@@ -380,7 +397,8 @@ export class Store {
       `## 笔记\n\n\n` +
       `## 草稿\n`;
     fs.writeFileSync(path.join(dir, this.config.hubFile), template, 'utf8');
-    this.registerProjectDir(name.trim());
+    // 白名单相对路径始终以 projectsRoot 为基准；跨盘时 relative 返回绝对路径，直接保留。
+    this.registerProjectDir(path.relative(this.projectsRootAbs(), dir));
     await this.refresh();
     vscode.window.showInformationMessage(`项目「${name.trim()}」已创建并加入检测列表`);
   }
