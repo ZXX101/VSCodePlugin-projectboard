@@ -129,9 +129,8 @@ export class BoardPanel {
   private async onCardAction(id: string, action: string): Promise<void> {
     const project = this.store.projects.find((p) => p.id === id);
     if (!project) { return; }
-    const hub = path.join(id, this.store.config.hubFile);
-    const openHub = async (): Promise<void> => {
-      const doc = await vscode.workspace.openTextDocument(hub);
+    const openConfig = async (): Promise<void> => {
+      const doc = await vscode.workspace.openTextDocument(this.store.configPath);
       await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
     };
 
@@ -157,14 +156,14 @@ export class BoardPanel {
         if (!project.workspace || project.workspace.length === 0) {
           this.store.insertWorkspaceTemplate(id);
           await this.store.refresh();
-          vscode.window.showInformationMessage('已在 README 中插入工作区配置模板，请填写后重试');
-          await openHub();
+          vscode.window.showInformationMessage('已在根目录 .projectboard.json 中插入工作区配置模板，请填写后重试');
+          await openConfig();
           return;
         }
         await runWorkspace(project.workspace, project.name);
         break;
       case 'workspaceEdit':
-        await openHub();
+        await openConfig();
         break;
     }
   }

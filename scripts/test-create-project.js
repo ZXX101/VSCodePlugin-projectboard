@@ -100,10 +100,10 @@ async function main() {
       assert.equal(picker.items.filter((item) => item.label === customType).length, 1);
     });
     assert.equal(store.projects.find((project) => project.dirName === '复用自定义类型')?.type, customType);
-    // 兼容旧笔记：忽略 focus 字段，保留原文件，任务统计仍排除草稿。
+    // 兼容旧笔记：清理 focus 字段并备份原文件，任务统计仍排除草稿。
     const legacyHub = path.join(outsideParent, '自定义类型', 'README.md');
     const legacyContent = fs.readFileSync(legacyHub, 'utf8')
-      .replace('status: doing', 'status: doing\nfocus: 旧焦点')
+      .replace('## 需求', '---\nfocus: 旧焦点\n---\n## 需求')
       .replace('## 需求\n\n- [ ] ', '## 需求\n\n- [ ] 待办任务\n- [x] 完成任务\n- [-] 搁置任务')
       .replace('## 草稿\n', '## 草稿\n- [ ] 草稿任务');
     fs.writeFileSync(legacyHub, legacyContent);
@@ -115,7 +115,8 @@ async function main() {
     assert.equal(legacyProject.done, 1);
     assert.equal(legacyProject.shelved, 1);
     assert.equal(legacyProject.progress, 50);
-    assert.equal(fs.readFileSync(legacyHub, 'utf8'), legacyContent);
+    assert.equal(fs.readFileSync(legacyHub, 'utf8'), legacyContent.replace('---\nfocus: 旧焦点\n---\n', ''));
+    assert.equal(fs.readFileSync(path.join(path.dirname(legacyHub), '.README.md.projectboard.bak'), 'utf8'), legacyContent);
     const before = fs.readFileSync(configPath, 'utf8');
     for (const step of ['folder', 'name', 'type']) {
       await create(outsideParent, '取消测试', step);

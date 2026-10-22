@@ -53,14 +53,14 @@ const FIXTURE = path.resolve(__dirname, '..', 'test-fixtures', 'XuFeng');
   store.setStatus(gcs.id, 'paused');
   await store.refresh();
   const after = store.projects.find((p) => p.dirName === '地面站');
-  console.log(`setStatus(paused) 后 status = ${after.status}（应回写 frontmatter）`);
+  console.log(`setStatus(paused) 后 status = ${after.status}（应写入根配置）`);
   store.setStatus(gcs.id, 'doing'); // 还原
 
   const inserted = store.insertWorkspaceTemplate(gcs.id);
   const insertedTwice = store.insertWorkspaceTemplate(gcs.id);
   await store.refresh();
   const ws = store.projects.find((p) => p.dirName === '地面站');
-  console.log(`README 已含 workspace 时插入返回 ${inserted}（应为 false，防重复）`);
+  console.log(`根配置已含 workspace 时插入返回 ${inserted}（应为 false，防重复）`);
   console.log(`连续插入两次返回 ${insertedTwice}（应为 false）`);
   console.log(`workspace 项数 = ${ws.workspace.length}（应为 3，不被重复键破坏）`);
 

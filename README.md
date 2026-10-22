@@ -27,10 +27,14 @@ npm run deploy   # 编译 + 覆盖安装到本机所有 VS Code 扩展目录
 
 ## 笔记目录启用方式
 
-在笔记根目录创建 `.projectboard.json`（字段均可省略，默认值如下）：
+在笔记根目录创建 `.projectboard.json`（示例如下，未配置的字段使用默认值）：
 
 ```json
 {
+  "projectDirs": ["MyProj"],
+  "projects": {
+    "MyProj": { "name": "我的项目", "type": "web", "status": "doing", "workspace": [] }
+  },
   "projectsRoot": ".",
   "hubFile": "README.md",
   "staleDays": 30,
@@ -38,8 +42,11 @@ npm run deploy   # 编译 + 覆盖安装到本机所有 VS Code 扩展目录
 }
 ```
 
-`projectsRoot` 下每个含 `README.md`（带 frontmatter）的子文件夹即一张项目卡片。
-frontmatter 字段与 README 区块约定见《需求规格书》第 3 节。
+看板只读取 `projectDirs` 列出的目录，相对路径以 `projectsRoot` 为基准。每个项目的配置统一写在 `projects` 中，对象键与目录列表中的路径一致；Markdown 只保留正文。
+
+升级后自动迁移旧 Markdown 开头的项目配置，并移除旧字段（包括 `focus`）。迁移前保留 `.projectboard.json.projectboard.bak` 和各项目下的 `.README.md.projectboard.bak`，正文与修改时间保留。已有根配置时以根配置为准。
+
+右键修改项目状态会更新根配置；“编辑工作区配置”直接打开根配置。完整字段与正文约定见《需求规格书》第 3、5 节。
 
 ## 打包
 
@@ -51,7 +58,7 @@ npm run package   # 生成 projectboard-x.y.z.vsix，可离线安装
 
 ```
 src/extension.ts   入口：激活、命令、文件监听
-src/store.ts       数据层：配置发现、frontmatter 解析、进度统计、文档树、写操作
+src/store.ts       数据层：配置发现、集中配置与旧版迁移、进度统计、文档树、写操作
 src/launcher.ts    工作区启动器：app / vscode / url / explorer / powertoys
 src/panel.ts       看板 Webview 面板（三栏）
 src/sidebar.ts     活动栏侧边卡片列表

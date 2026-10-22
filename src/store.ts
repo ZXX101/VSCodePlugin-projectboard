@@ -7,6 +7,8 @@ import { toFsPath } from './paths';
 export interface BoardConfig {
   /** 检测目录白名单：只统计列表中的项目目录；为空则不读取任何目录 */
   projectDirs: string[];
+  /** 以 projectDirs 中的路径为键，集中存放各项目配置 */
+  projects: Record<string, ProjectSettings>;
   /** 新建项目时的默认存放位置，兼作 projectDirs 相对条目的解析基准 */
   projectsRoot: string;
   hubFile: string;
@@ -23,6 +25,17 @@ export interface WorkspaceItem {
   url?: string;
   lnk?: string;
   delay?: number;
+}
+
+export interface ProjectSettings {
+  name?: string;
+  type?: string;
+  status?: string;
+  code?: string;
+  repo?: string;
+  branch?: string;
+  tags?: string[];
+  workspace?: WorkspaceItem[];
 }
 
 export interface Project {
@@ -54,6 +67,7 @@ export interface TreeNode {
 
 const DEFAULT_CONFIG: BoardConfig = {
   projectDirs: [],
+  projects: {},
   projectsRoot: '.',
   hubFile: 'README.md',
   staleDays: 30,
@@ -61,6 +75,7 @@ const DEFAULT_CONFIG: BoardConfig = {
 };
 
 const CONFIG_FILE = '.projectboard.json';
+const PROJECT_FIELDS = ['name', 'type', 'status', 'code', 'repo', 'branch', 'tags', 'workspace'] as const;
 const IGNORE_DIRS = new Set(['.git', 'node_modules', '.vscode', 'dist', 'out']);
 
 export class Store {
@@ -84,20 +99,111 @@ export class Store {
       }
     }
     if (!this.root) { return false; }
-    this.loadConfig();
     await this.refresh();
     return true;
   }
 
-  loadConfig(): void {
-    this.config = { ...DEFAULT_CONFIG };
-    try {
-      const raw = fs.readFileSync(path.join(this.root, CONFIG_FILE), 'utf8');
-      const userCfg = JSON.parse(raw);
-      this.config = { ...DEFAULT_CONFIG, ...userCfg };
-    } catch {
-      // 配置文件缺失或损坏时使用默认值
+  get configPath(): string { return path.join(this.root, CONFIG_FILE); }
+
+  private readConfig(): Record<string, unknown> {
+    // 写操作必须读取最新配置；解析失败时停止，不能用默认值覆盖用户文件。
+    const cfg: unknown = JSON.parse(fs.readFileSync(this.configPath, 'utf8'));
+    if (!isRecord(cfg) || ['projectsRoot', 'hubFile', 'archiveFolder'].some((key) =>
+      cfg[key] !== undefined && typeof cfg[key] !== 'string') || (cfg.projectDirs !== undefined &&
+      (!Array.isArray(cfg.projectDirs) || !cfg.projectDirs.every((entry) => typeof entry === 'string'))) ||
+      (cfg.projects !== undefined && (!isRecord(cfg.projects) ||
+        !Object.values(cfg.projects).every(isRecord)))) {
+      throw new Error('.projectboard.json 格式错误：目录与文件名应为字符串，projectDirs 应为路径数组，projects 应为项目配置对象');
     }
+    return cfg;
+  }
+
+  private writeConfig(cfg: Record<string, unknown>): void {
+    // 先写临时文件再替换，避免进程中断留下半份 JSON。
+    const temp = this.configPath + '.tmp';
+    fs.writeFileSync(temp, JSON.stringify(cfg, null, 2) + '\n', 'utf8');
+    fs.renameSync(temp, this.configPath);
+  }
+
+  loadConfig(): void {
+    this.config = { ...DEFAULT_CONFIG, ...this.readConfig() } as BoardConfig;
+  }
+
+  private projectKey(projectId: string): string {
+    const key = this.config.projectDirs.find((entry) =>
+      path.resolve(this.projectsRootAbs(), entry) === path.resolve(projectId));
+    if (key === undefined) { throw new Error('项目不在检测列表中'); }
+    return key;
+  }
+
+  /** 自动迁移旧 frontmatter：先备份，再保存集中配置，最后清理 Markdown 中的插件字段。 */
+  private migrateLegacyProjects(): void {
+    const cfg = this.readConfig();
+    const settings = { ...(cfg.projects as Record<string, ProjectSettings> ?? {}) };
+    const cleanup: { hub: string; raw: string; content: string }[] = [];
+    let changed = false;
+    for (const key of this.config.projectDirs) {
+      const hub = path.join(path.resolve(this.projectsRootAbs(), key), this.config.hubFile);
+      if (!fs.existsSync(hub)) { continue; }
+      const raw = fs.readFileSync(hub, 'utf8');
+      const header = raw.match(/^\uFEFF?---\r?\n[\s\S]*?\r?\n---[^\S\r\n]*(?:\r?\n|$)/);
+      if (/^\uFEFF?---\r?\n/.test(raw) && !header) {
+        throw new Error(`无法迁移 ${hub}：frontmatter 缺少结束分隔符`);
+      }
+      let data: Record<string, unknown> = {};
+      if (header) {
+        try { data = matter(raw.replace(/^\uFEFF/, '')).data; }
+        catch (error) { throw new Error(`无法迁移 ${hub}：${String(error)}`); }
+      }
+      if (!Object.prototype.hasOwnProperty.call(settings, key)) {
+        const project: ProjectSettings = {};
+        for (const field of PROJECT_FIELDS) {
+          if (data[field] !== undefined && data[field] !== null) {
+            Object.assign(project, { [field]: data[field] });
+          }
+        }
+        Object.defineProperty(settings, key, { value: project, enumerable: true, configurable: true, writable: true });
+        changed = true;
+      }
+      // 根配置已经存在时仍以根配置为准；旧字段先备份再清理，focus 直接废弃。
+      if (header && [...PROJECT_FIELDS, 'focus'].some((field) => Object.prototype.hasOwnProperty.call(data, field))) {
+        const extra = { ...data };
+        for (const field of [...PROJECT_FIELDS, 'focus']) { delete extra[field]; }
+        const body = raw.slice(header[0].length);
+        const prefix = Object.keys(extra).length ? matter.stringify('', extra) : '';
+        cleanup.push({ hub, raw, content: prefix + body });
+      }
+    }
+    // 集中配置中的废弃字段也一并清理。
+    for (const [key, value] of Object.entries(settings)) {
+      if (Object.prototype.hasOwnProperty.call(value, 'focus') || Object.prototype.hasOwnProperty.call(value, 'focusAuto')) {
+        const cleaned = { ...value } as Record<string, unknown>;
+        delete cleaned.focus;
+        delete cleaned.focusAuto;
+        settings[key] = cleaned;
+        changed = true;
+      }
+    }
+    if (!changed && !cleanup.length) { return; }
+    const backup = (file: string, content: string): void => {
+      let dest = path.join(path.dirname(file), '.' + path.basename(file).replace(/^\./, '') + '.projectboard.bak');
+      if (fs.existsSync(dest)) {
+        if (fs.readFileSync(dest, 'utf8') === content) { return; }
+        // 旧编辑器可能重新写回配置头；原备份不同则另存版本，避免清理掉未备份的改动。
+        dest += '.' + Date.now();
+      }
+      fs.writeFileSync(dest, content, { encoding: 'utf8', flag: 'wx' });
+    };
+    backup(this.configPath, fs.readFileSync(this.configPath, 'utf8'));
+    for (const item of cleanup) { backup(item.hub, item.raw); }
+    if (changed) { this.writeConfig({ ...cfg, projects: settings }); }
+    for (const item of cleanup) {
+      const times = fs.statSync(item.hub);
+      fs.writeFileSync(item.hub, item.content, 'utf8');
+      // 迁移配置不算笔记更新，保持原来的排序与“疑似搁置”时间。
+      fs.utimesSync(item.hub, times.atime, times.mtime);
+    }
+    this.loadConfig();
   }
 
   projectsRootAbs(): string {
@@ -105,7 +211,13 @@ export class Store {
   }
 
   async refresh(): Promise<void> {
-    this.loadConfig();
+    try {
+      this.loadConfig();
+      this.migrateLegacyProjects();
+    } catch (error) {
+      void vscode.window.showErrorMessage(`项目看板配置读取或迁移失败：${String(error)}`);
+      return;
+    }
     this.projects = this.scanProjects();
     this._onDidChange.fire();
   }
@@ -123,7 +235,7 @@ export class Store {
       const hub = path.join(dir, this.config.hubFile);
       if (!fs.existsSync(hub)) { continue; }
       try {
-        result.push(this.parseProject(dir, path.basename(dir), hub));
+        result.push(this.parseProject(dir, path.basename(dir), hub, this.config.projects[entry] ?? {}));
       } catch {
         // 单个项目解析失败不拖垮整个看板
       }
@@ -136,10 +248,7 @@ export class Store {
     return result;
   }
 
-  private parseProject(dir: string, dirName: string, hub: string): Project {
-    const raw = fs.readFileSync(hub, 'utf8');
-    const parsed = matter(raw);
-    const d = parsed.data as Record<string, unknown>;
+  private parseProject(dir: string, dirName: string, hub: string, d: ProjectSettings): Project {
 
     const stats = this.computeStats(dir, hub);
     const code = str(d.code);
@@ -177,7 +286,7 @@ export class Store {
       updated = Math.max(updated, mtime(file));
       let content: string;
       try { content = fs.readFileSync(file, 'utf8'); } catch { continue; }
-      const stripped = stripSection(content.split('\n'), '草稿').join('\n');
+      const stripped = stripSection(content.split(/\r?\n/), '草稿').join('\n');
       const re = /^[-*]\s+\[([ xX-])\]\s*(.*)$/gm;
       let m: RegExpExecArray | null;
       while ((m = re.exec(stripped)) !== null) {
@@ -189,7 +298,7 @@ export class Store {
     // 问题数：README 的「问题」区块内非空非标题行
     let problems = 0;
     try {
-      const hubLines = fs.readFileSync(hub, 'utf8').split('\n');
+      const hubLines = fs.readFileSync(hub, 'utf8').split(/\r?\n/);
       problems = extractSection(hubLines, '问题')
         .filter((l) => l.trim() && !/^#{1,6}\s/.test(l)).length;
     } catch { /* ignore */ }
@@ -215,7 +324,7 @@ export class Store {
     return out;
   }
 
-  /** git 分支：优先读 code 目录的 .git/HEAD，兜底 frontmatter 的 branch 字段 */
+  /** git 分支：优先读 code 目录的 .git/HEAD，兜底根配置中的 branch 字段 */
   private resolveBranch(code: string, fallback: string): string {
     if (code) {
       try {
@@ -271,56 +380,36 @@ export class Store {
     return Date.now() - t < 2000;
   }
 
-  // ── frontmatter 写操作（正则原位修改，保留用户格式与注释） ──
+  // ── 集中项目配置写操作 ──────────────────────────────────────
 
-  /** 在 frontmatter 中更新或插入顶层标量字段 */
-  private writeFmField(hub: string, key: string, value: string): void {
-    const raw = fs.readFileSync(hub, 'utf8');
-    const m = raw.match(/^(---\r?\n)([\s\S]*?)(^---\s*$)/m);
-    if (!m) { return; }
-    let body = m[2];
-    const lineRe = new RegExp(`^${key}:.*$`, 'm');
-    if (lineRe.test(body)) {
-      body = body.replace(lineRe, `${key}: ${value}`);
-    } else {
-      body = body.replace(/\s*$/, '') + `\n${key}: ${value}\n`;
-    }
-    fs.writeFileSync(hub, m[1] + body + m[3] + raw.slice(m[0].length), 'utf8');
+  private updateProjectSettings(projectId: string, update: (settings: ProjectSettings) => void): void {
+    this.loadConfig();
+    const key = this.projectKey(projectId);
+    const cfg = this.readConfig();
+    const projects = { ...(cfg.projects as Record<string, ProjectSettings> ?? {}) };
+    const settings = { ...projects[key] };
+    update(settings);
+    Object.defineProperty(projects, key, { value: settings, enumerable: true, configurable: true, writable: true });
+    this.writeConfig({ ...cfg, projects });
   }
 
   setStatus(projectId: string, status: string): void {
-    this.writeFmField(path.join(projectId, this.config.hubFile), 'status', status);
+    this.updateProjectSettings(projectId, (settings) => { settings.status = status; });
   }
 
-  /** 向 frontmatter 插入工作区配置模板；已存在 workspace 字段时跳过，返回是否实际插入 */
+  /** 工作区模板写入根配置；已有启动项时不重复插入。 */
   insertWorkspaceTemplate(projectId: string): boolean {
-    const hub = path.join(projectId, this.config.hubFile);
-    const raw = fs.readFileSync(hub, 'utf8');
-    const m = raw.match(/^(---\r?\n)([\s\S]*?)(^---\s*$)/m);
-    if (!m) { return false; }
-    // 防重复：frontmatter 中已有 workspace 字段时不再插入（重复键会导致 YAML 解析失败）
-    if (/^workspace\s*:/m.test(m[2])) { return false; }
-    const template =
-      `workspace:\n` +
-      `  - name: 代码            # 用 VS Code 打开代码目录\n` +
-      `    type: vscode\n` +
-      `    path: \n` +
-      `  - name: 终端            # 任意程序+参数，例如 wt.exe 配合 args: wsl -e codex\n` +
-      `    type: app\n` +
-      `    run: wt.exe\n` +
-      `    args: \n` +
-      `  - name: 参考文档         # 浏览器打开网页\n` +
-      `    type: url\n` +
-      `    url: \n` +
-      `  # - name: 窗口布局       # PowerToys Workspaces 桌面快捷方式（窗口位置记忆）\n` +
-      `  #   type: powertoys\n` +
-      `  #   lnk: C:\\Users\\PC\\Desktop\\工作区.lnk\n` +
-      `  # - name: 文件夹         # 文件管理器打开\n` +
-      `  #   type: explorer\n` +
-      `  #   path: \n`;
-    const body = m[2].replace(/\s*$/, '') + '\n' + template;
-    fs.writeFileSync(hub, m[1] + body + m[3] + raw.slice(m[0].length), 'utf8');
-    return true;
+    let inserted = false;
+    this.updateProjectSettings(projectId, (settings) => {
+      if (settings.workspace?.length) { return; }
+      settings.workspace = [
+        { name: '代码', type: 'vscode', path: '' },
+        { name: '终端', type: 'app', run: 'wt.exe', args: '' },
+        { name: '参考文档', type: 'url', url: '' },
+      ];
+      inserted = true;
+    });
+    return inserted;
   }
 
   // ── 新建项目 ──────────────────────────────────────────────
@@ -337,7 +426,7 @@ export class Store {
         picker.onDidChangeValue((value) => {
           const input = value.trim();
           const items: vscode.QuickPickItem[] = types.map((label) => ({ label }));
-          // 保留原始类型名作为 label，避免把“新建类型”的提示文字写入 frontmatter。
+          // 保留原始类型名作为 label，避免把“新建类型”的提示文字写入项目配置。
           if (input && !types.includes(input)) {
             items.unshift({ label: input, description: '新类型（回车创建）', alwaysShow: true });
           }
@@ -360,6 +449,7 @@ export class Store {
   }
 
   async createProjectInteractive(): Promise<void> {
+    this.loadConfig();
     const folders = await vscode.window.showOpenDialog({
       title: '新建项目（1/3）：选择存放文件夹',
       openLabel: '在此文件夹下新建项目',
@@ -394,42 +484,36 @@ export class Store {
       return;
     }
     const template =
-      `---\n` +
-      `name: ${JSON.stringify(name.trim())}\n` +
-      // 自定义类型可能含冒号、# 等 YAML 特殊字符，按字符串写入以保证再次扫描无损。
-      `type: ${JSON.stringify(type)}\n` +
-      `status: doing\n` +
-      `code: \n` +
-      `repo: \n` +
-      `branch: \n` +
-      `tags: []\n` +
-      `---\n\n` +
       `## 需求\n\n- [ ] \n\n` +
       `## 问题\n\n\n` +
       `## 笔记\n\n\n` +
       `## 草稿\n`;
     fs.writeFileSync(path.join(dir, this.config.hubFile), template, 'utf8');
-    // 白名单相对路径始终以 projectsRoot 为基准；跨盘时 relative 返回绝对路径，直接保留。
-    this.registerProjectDir(path.relative(this.projectsRootAbs(), dir));
+    // 白名单相对路径始终以 projectsRoot 为基准；跨盘时 relative 返回绝对路径。
+    this.registerProjectDir(path.relative(this.projectsRootAbs(), dir), {
+      name: name.trim(), type, status: 'doing', code: '', repo: '', branch: '', tags: [], workspace: [],
+    });
     await this.refresh();
     vscode.window.showInformationMessage(`项目「${name.trim()}」已创建并加入检测列表`);
   }
 
-  /** 把新项目目录登记进 .projectboard.json 的 projectDirs 白名单 */
-  private registerProjectDir(dirName: string): void {
-    const cfgPath = path.join(this.root, CONFIG_FILE);
-    let cfg: Record<string, unknown> = {};
-    try { cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8')); } catch { /* 损坏则重建 */ }
-    const list = Array.isArray(cfg.projectDirs) ? (cfg.projectDirs as string[]) : [];
-    if (!list.includes(dirName)) {
-      list.push(dirName);
-      cfg.projectDirs = list;
-      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n', 'utf8');
-    }
+  /** 把新项目目录及配置一起写入根配置，保留所有其他项目和全局设置。 */
+  private registerProjectDir(dirName: string, settings: ProjectSettings): void {
+    const cfg = this.readConfig();
+    const list = Array.isArray(cfg.projectDirs) ? [...cfg.projectDirs] : [];
+    if (!list.includes(dirName)) { list.push(dirName); }
+    const projects = { ...(cfg.projects as Record<string, ProjectSettings> ?? {}) };
+    Object.defineProperty(projects, dirName, { value: settings, enumerable: true, configurable: true, writable: true });
+    this.writeConfig({ ...cfg, projectDirs: list, projects });
   }
+
 }
 
 // ── 工具函数 ────────────────────────────────────────────────
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
 
 function str(v: unknown): string {
   return typeof v === 'string' ? v : v == null ? '' : String(v);
