@@ -195,6 +195,13 @@ html, body, #app {
   white-space: nowrap; font-family: var(--vscode-editor-font-family, monospace);
 }
 .save-state { font-size: 11px; opacity: .55; white-space: nowrap; }
+.width-btn {
+  flex-shrink: 0; padding: 4px 8px; border: 1px solid var(--vscode-widget-border, #555);
+  border-radius: 4px; background: transparent; color: inherit; cursor: pointer;
+  font-size: 12px; white-space: nowrap;
+}
+.width-btn:hover { background: var(--vscode-toolbar-hoverBackground, #3a3a3a); }
+.width-btn[aria-pressed="true"] { border-color: var(--vscode-focusBorder, #007acc); }
 #editor { flex: 1; min-height: 0; }
 .editor-empty {
   position: absolute; inset: 37px 0 0 0; display: flex; align-items: center; justify-content: center;
@@ -213,6 +220,20 @@ html, body, #app {
 #editor .vditor-ir,
 #editor .vditor-sv,
 #editor .vditor-wysiwyg { overflow-y: auto; }
+
+/* Vditor 会按固定 800px 内容宽度写入内联 padding；仅覆盖横向留白，
+   用 CSS 随编辑栏宽度重算，切换模式/文档或收起侧栏后也无需重建实例。 */
+#editor { --doc-side-padding: max(16px, calc((100% - 800px) / 2)); }
+#editor.editor-fluid { --doc-side-padding: 16px; }
+#editor .vditor-ir > .vditor-reset,
+#editor .vditor-wysiwyg > .vditor-reset,
+#editor .vditor-sv {
+  padding-left: var(--doc-side-padding) !important;
+  padding-right: var(--doc-side-padding) !important;
+}
+#editor .vditor-toolbar { padding-left: 16px !important; }
+#editor .vditor-preview > .vditor-reset { max-width: 800px !important; }
+#editor.editor-fluid .vditor-preview > .vditor-reset { max-width: none !important; }
 
 /* ── 卡片右键菜单 ── */
 .ctx-menu {

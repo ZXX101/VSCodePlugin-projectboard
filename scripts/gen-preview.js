@@ -84,6 +84,7 @@ const FIXTURE = path.resolve(__dirname, '..', 'test-fixtures', 'XuFeng');
       <div class="doc-header">
         <span id="docPath" class="doc-path">未选择文档</span>
         <span id="saveState" class="save-state"></span>
+        <button id="btnEditorWidth" class="width-btn" type="button" aria-pressed="false">固定宽度</button>
         <button id="btnOpenExternal" class="icon-btn" title="在编辑器中打开">↗</button>
       </div>
       <div id="editor"></div>

@@ -366,6 +366,20 @@
   setupColToggle('colFiles', 'toggleFiles', 'filesCollapsed');
 
   // ── 工具栏 ──
+  const widthButton = $('btnEditorWidth');
+  let editorFluid = (vscode.getState() || {}).editorFluid === true;
+  function applyEditorWidth() {
+    $('editor').classList.toggle('editor-fluid', editorFluid);
+    widthButton.textContent = editorFluid ? '自适应宽度' : '固定宽度';
+    widthButton.title = editorFluid ? '当前自适应宽度，点击切换为固定宽度（800px）' : '当前固定宽度（800px），点击铺满编辑区域';
+    widthButton.setAttribute('aria-pressed', String(editorFluid));
+  }
+  applyEditorWidth();
+  widthButton.addEventListener('click', () => {
+    editorFluid = !editorFluid;
+    applyEditorWidth();
+    vscode.setState(Object.assign({}, vscode.getState(), { editorFluid }));
+  });
   $('search').addEventListener('input', (e) => { searchText = e.target.value; renderCards(); });
   $('filterStatus').addEventListener('change', (e) => { filterStatus = e.target.value; renderCards(); });
   $('filterType').addEventListener('change', (e) => { filterType = e.target.value; renderCards(); });
