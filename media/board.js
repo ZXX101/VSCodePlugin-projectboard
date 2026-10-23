@@ -215,6 +215,78 @@
   }
 
   // ── Vditor 编辑器 ──
+  // VS Code 会通过 execCommand 转发剪切/粘贴；Chromium 拒绝在该命令的事件内
+  // 再执行 delete/insertHTML。剪切保留同步复制，仅补做失败的删除；粘贴先同步
+  // 保存剪贴板全部格式，下一轮交还 Vditor 处理，避免任务列表只重排却未插入内容。
+  const deferredPastes = new WeakSet();
+  function clipboardContext(event) {
+    const target = event.target instanceof Element ? event.target : event.target.parentElement;
+    if (!target || target.closest('input, textarea, [contenteditable="false"]')) { return null; }
+    const editable = target.closest('.vditor-reset[contenteditable="true"]');
+    const selection = window.getSelection();
+    if (!editable || !$('editor').contains(editable) || !selection || !selection.rangeCount) { return null; }
+    const range = selection.getRangeAt(0).cloneRange();
+    if (!editable.contains(range.startContainer) || !editable.contains(range.endContainer)) { return null; }
+    return { editable, range, path: currentDocPath, html: editable.innerHTML };
+  }
+  function clipboardContextUnchanged(context) {
+    const selection = window.getSelection();
+    if (context.path !== currentDocPath || !context.editable.isConnected ||
+      context.html !== context.editable.innerHTML || !selection || !selection.rangeCount) { return false; }
+    const range = selection.getRangeAt(0);
+    return range.startContainer === context.range.startContainer && range.startOffset === context.range.startOffset &&
+      range.endContainer === context.range.endContainer && range.endOffset === context.range.endOffset;
+  }
+  $('editor').addEventListener('cut', (event) => {
+    const context = clipboardContext(event);
+    if (!context || context.range.collapsed) { return; }
+    // 目标阶段在 Vditor 的复制监听器之后检查写入结果；复制失败时不能补删原文。
+    context.editable.addEventListener('cut', (cut) => {
+      if (!cut.defaultPrevented || !cut.clipboardData || !cut.clipboardData.getData('text/plain')) { return; }
+      setTimeout(() => {
+        // 原生剪切成功时 DOM 已变化，不重复删除；用户移动光标或切文档后也不补删。
+        if (clipboardContextUnchanged(context)) { document.execCommand('delete', false); }
+      }, 0);
+    }, { once: true });
+  }, true);
+  $('editor').addEventListener('paste', (event) => {
+    if (deferredPastes.has(event) || !event.clipboardData) { return; }
+    const context = clipboardContext(event);
+    if (!context) { return; }
+    if (context.range.collapsed) {
+      const node = context.range.startContainer;
+      const task = (node instanceof Element ? node : node.parentElement).closest('li.vditor-task');
+      const checkbox = task && task.querySelector(':scope > input[type="checkbox"]');
+      if (checkbox) {
+        const afterCheckbox = document.createRange();
+        afterCheckbox.setStartAfter(checkbox);
+        afterCheckbox.collapse(true);
+        // 行首光标有时落在 checkbox 前；在那里插入文字会破坏 Markdown 的 [x] 前缀。
+        // 仅调整空选区到任务正文开头，选中文本进行替换时保持原来的范围。
+        if (context.range.compareBoundaryPoints(Range.START_TO_START, afterCheckbox) < 0) {
+          context.range.setStartAfter(checkbox);
+          context.range.collapse(true);
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(context.range.cloneRange());
+        }
+      }
+    }
+    const data = new DataTransfer();
+    for (const type of event.clipboardData.types) {
+      if (type !== 'Files') { data.setData(type, event.clipboardData.getData(type)); }
+    }
+    for (const file of event.clipboardData.files) { data.items.add(file); }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    setTimeout(() => {
+      if (!clipboardContextUnchanged(context)) { return; }
+      const paste = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+      deferredPastes.add(paste);
+      context.editable.dispatchEvent(paste);
+    }, 0);
+  }, true);
+
   function loadDoc(filePath, content) {
     currentDocPath = filePath;
     lastDocContent = content;
